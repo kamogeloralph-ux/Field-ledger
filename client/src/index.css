@@ -1,0 +1,163 @@
+/* Field Ledger direction: tactile inspection records, warm paper canvas, deep spruce ink, signal-orange proof marks. */
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
+:root {
+  --radius: 0.75rem;
+  --background: oklch(0.965 0.016 88);
+  --foreground: oklch(0.22 0.025 156);
+  --card: oklch(0.985 0.01 88);
+  --card-foreground: oklch(0.22 0.025 156);
+  --popover: oklch(0.985 0.01 88);
+  --popover-foreground: oklch(0.22 0.025 156);
+  --primary: oklch(0.33 0.055 156);
+  --primary-foreground: oklch(0.98 0.01 88);
+  --secondary: oklch(0.925 0.02 87);
+  --secondary-foreground: oklch(0.34 0.04 156);
+  --muted: oklch(0.92 0.02 88);
+  --muted-foreground: oklch(0.51 0.03 156);
+  --accent: oklch(0.73 0.16 48);
+  --accent-foreground: oklch(0.2 0.03 48);
+  --destructive: oklch(0.54 0.18 28);
+  --destructive-foreground: oklch(0.99 0 0);
+  --border: oklch(0.84 0.025 88);
+  --input: oklch(0.84 0.025 88);
+  --ring: oklch(0.56 0.1 156);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: #eee9dc;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background:
+    radial-gradient(circle at 15% 10%, rgb(255 255 255 / 0.8), transparent 28rem),
+    linear-gradient(115deg, #f4f0e5 0%, #ece7d8 54%, #e5dfce 100%);
+  color: var(--foreground);
+  font-family: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+::selection {
+  background: #e9682a;
+  color: #fff8ea;
+}
+
+.font-slab {
+  font-family: "Roboto Slab", Georgia, serif;
+}
+
+.field-shell {
+  background-color: rgb(247 243 233 / 0.82);
+  background-image: linear-gradient(rgb(47 70 56 / 0.035) 1px, transparent 1px);
+  background-size: 100% 34px;
+}
+
+.paper-panel {
+  background: rgb(255 253 246 / 0.84);
+  box-shadow: 0 18px 55px rgb(51 57 43 / 0.08), 0 2px 0 rgb(255 255 255 / 0.7) inset;
+  backdrop-filter: blur(10px);
+}
+
+.ink-rule {
+  border-color: rgb(57 76 62 / 0.18);
+}
+
+.signal-shadow {
+  box-shadow: 5px 5px 0 rgb(233 104 42 / 0.22);
+}
+
+.fade-up {
+  animation: fade-up 380ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fade-up { animation: none; }
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
+}
+
+@media (max-width: 768px) {
+  body {
+    background: #f1ede2;
+  }
+}
+
+@layer base {
+  * { @apply border-border outline-ring/50; }
+  body { @apply bg-background text-foreground; }
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [type="button"]:not(:disabled),
+  [type="submit"]:not(:disabled),
+  [type="reset"]:not(:disabled),
+  a[href],
+  select:not(:disabled),
+  input[type="checkbox"]:not(:disabled),
+  input[type="radio"]:not(:disabled) { @apply cursor-pointer; }
+}
+
+@layer components {
+  .container {
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .flex { min-height: 0; min-width: 0; }
+
+  @media (min-width: 640px) {
+    .container { padding-left: 1.5rem; padding-right: 1.5rem; }
+  }
+
+  @media (min-width: 1024px) {
+    .container { max-width: 1440px; padding-left: 2.25rem; padding-right: 2.25rem; }
+  }
+}

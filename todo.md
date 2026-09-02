@@ -1,0 +1,37 @@
+# Supabase connection tasks
+
+- [x] Rotate the exposed Supabase database password in Supabase Project Settings.
+- [x] Obtain the Supabase project URL and public `anon` key from Project Settings → API.
+- [x] Wire the public Supabase project configuration into the PWA client.
+- [x] Open the Supabase SQL Editor and confirm whether the user is authenticated.
+- [x] Mitigate the long-running schema setup by splitting it into smaller safe scripts and guiding the user through execution.
+- [x] Prepare and run the split SQL scripts in smaller safe sections if the full script does not complete.
+- [x] Extract the fleet register from the uploaded photos, generate a CSV, and verify uncertain rows before import.
+- [ ] Test Row Level Security with one driver and one supervisor account after the split scripts are applied.
+- [ ] Validate login, fleet lookup, inspection submission, offline queue, and photo upload end to end.
+- [ ] Resolve duplicate registration `NB67DNGP` for fleets `8563850` and `8563851`, then rerun the corrected truck seed SQL.
+- [x] Replace the stale fleet seed query with a clearly named duplicate-safe import and diagnostic SQL file.
+- [x] Run the duplicate-safe fleet import and confirm 83 truck rows in `public.trucks`.
+- [x] Implement separate `admin.html` access for admin-only fleet and driver management.
+- [x] Restrict supervisors to review access and drivers to inspection access.
+- [x] Add authenticated session handling and role guards.
+- [x] Align Supabase RLS so only admins can insert, update, or delete trucks and drivers.
+- [x] Create a browser-safe JavaScript Supabase auth helper for sign-in, sign-out, session persistence, and role lookup.
+- [x] Add driver, supervisor, and admin role guards to the PWA.
+- [x] Add authentication-flow tests and setup instructions.
+- [x] Fix the admin page build error before packaging.
+- [x] Create a deployment-safe GitHub ZIP with no secrets or temporary OCR files.
+- [x] Verify the ZIP contents and include GitHub Pages deployment instructions.
+- [x] Hide inspection-only CTAs from supervisors and admins instead of relying on blocked navigation toasts.
+- [x] Add UI tests proving role-specific views and actions are visible only to the permitted role.
+- [ ] Validate one driver, one supervisor, and one admin account after applying `07_admin_only_policies.sql`.
+- [x] Run the complete local validation suite after the final inspection-sync and validation-query changes.
+- [x] Verify the final SQL scripts and deployment ZIP contents after the latest additions.
+- [ ] Complete external Supabase RLS/account validation when the authenticated dashboard or test-account confirmations are available.
+- [x] Fix captured camera photos returning to the start screen and not remaining visible in the inspection draft.
+- [x] Fix inspection submission failure and preserve the draft when saving or uploading fails.
+- [x] Display the authenticated driver’s profile name throughout the driver workspace.
+- [x] Replace checklist status controls with explicit Yes/No choices for each inspection question.
+- [x] Add regression tests for driver identity, photo preview persistence, save failure recovery, and Yes/No checklist controls.
+- [x] Re-run local tests, production build, and visual verification after the driver workflow fixes.
+- [ ] Save and publish the repaired version for the user to retest.
