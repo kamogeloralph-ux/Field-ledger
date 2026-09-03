@@ -28,7 +28,7 @@ function AuthGate() {
     return <div className="grid min-h-screen place-items-center bg-[#ede9dd] text-[#2e4335]"><Loader2 className="h-7 w-7 animate-spin text-[#e9682a]" /></div>;
   }
 
-  if (!profile) return <Login onSuccess={() => navigate("/")} />;
+  if (!profile) return <Login mode="driver" onSuccess={() => navigate("/")} />;
   if (profile.role !== "driver") {
     const adminUrl = `${import.meta.env.BASE_URL}admin.html`;
     if (window.location.pathname !== new URL(adminUrl, window.location.origin).pathname) window.location.replace(adminUrl);

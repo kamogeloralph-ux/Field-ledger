@@ -13,7 +13,7 @@ type AdminDriver = { id: string; auth_user_id: string | null; employee_number: s
 export function AdminGate({ children }: { children: React.ReactNode }) {
   const { loading, profile, signOut } = useFleetAuth();
   if (loading) return <div className="grid min-h-screen place-items-center bg-[#ede9dd] text-[#2e4335]">Loading secure admin area…</div>;
-  if (!profile) return <Login onSuccess={() => window.location.reload()} />;
+  if (!profile) return <Login mode="admin" onSuccess={() => window.location.reload()} />;
   if (profile.role !== "admin") return <main className="grid min-h-screen place-items-center bg-[#ede9dd] p-6"><div className="max-w-md rounded-2xl border border-[#e1c4b7] bg-[#fff5f0] p-8 text-center"><ShieldCheck className="mx-auto h-10 w-10 text-[#b65323]" /><h1 className="mt-4 font-slab text-3xl font-bold text-[#2e4335] text-center">Management access required</h1><p className="mt-3 text-sm leading-6 text-[#6d7a6d]">This page is restricted to the admin role. Ask an administrator to update your fleet profile, then sign in again.</p><div className="mt-6 flex flex-wrap justify-center gap-3"><Button type="button" variant="outline" onClick={() => { void signOut().finally(() => { window.location.href = "./"; }); }} className="h-10 rounded-lg border-[#d2cec0] bg-[#fbf8ef] text-xs font-bold"><ArrowLeft className="mr-2 h-3.5 w-3.5" />Back to sign in</Button><Button type="button" onClick={() => { window.location.href = "./"; }} className="h-10 rounded-lg bg-[#2f4638] text-xs font-bold text-white">Start again</Button></div></div></main>;
   return <>{children}</>;
 }
