@@ -32,7 +32,7 @@ function AdminWorkspace() {
   const [editingTruckId, setEditingTruckId] = useState<string | null>(null); const [openCard, setOpenCard] = useState<"driver" | "truck" | null>(null); const [reportDate, setReportDate] = useState(() => new Date().toISOString().slice(0, 10)); const [selectedPhoto, setSelectedPhoto] = useState<GalleryPhoto | null>(null);
 
   const load = async () => {
-    if (!supabase) { setLoading(false); return; } setLoading(true);
+    if (!supabase) { setLoading(false); return; } const client = supabase; setLoading(true);
     const [{ data: truckData, error: truckError }, { data: driverData, error: driverError }, { data: reportData, error: reportError }] = await Promise.all([
       supabase.from("trucks").select("id, fleet_number, registration, truck_type, model, size, status").order("fleet_number"),
       supabase.from("drivers").select("id, auth_user_id, employee_number, full_name, phone, role, active").order("full_name"),
@@ -41,7 +41,7 @@ function AdminWorkspace() {
     if (truckError || driverError || reportError) toastError((truckError || driverError || reportError)?.message || "Unable to load admin data.");
     setTrucks((truckData ?? []) as AdminTruck[]); setDrivers((driverData ?? []) as AdminDriver[]); const rows = (reportData ?? []) as unknown as ReportRow[]; setReports(rows);
     const photoRows = rows.flatMap((row) => (row.photos ?? []).map((photo) => ({ ...photo, truck: row.truck?.fleet_number || "Unknown truck", driver: row.driver?.full_name || "Unknown driver" })));
-    const signed = await Promise.all(photoRows.map(async (photo) => { const result = await supabase.storage.from("inspection-photos").createSignedUrl(photo.storage_path, 3600); return { ...photo, url: result.data?.signedUrl }; })); setGallery(signed); setLoading(false);
+    const signed = await Promise.all(photoRows.map(async (photo) => { const result = await client.storage.from("inspection-photos").createSignedUrl(photo.storage_path, 3600); return { ...photo, url: result.data?.signedUrl }; })); setGallery(signed); setLoading(false);
   };
   useEffect(() => { void load(); }, [reportDate]);
 
