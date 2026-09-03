@@ -10,7 +10,7 @@ import Login from "@/pages/Login";
 
 type AdminTruck = { id: string; fleet_number: string; registration: string; truck_type: string | null; model: string | null; size: string | null; status: "ready" | "inspection_due" | "out_of_service" };
 type AdminDriver = { id: string; auth_user_id: string | null; employee_number: string | null; full_name: string; phone: string | null; role: FleetRole; active: boolean };
-type ReportRow = { id: string; inspection_date: string; started_at: string | null; submitted_at: string | null; status: string; notes: string | null; driver_name: string | null; opening_kilometers: number | null; shift: "morning" | "day" | "night" | null; driver: { full_name: string; employee_number: string | null } | null; truck: { fleet_number: string; registration: string; model: string | null } | null; answers: { result: string; checklist_item: { label: string } | null }[]; photos: { id: string; photo_type: string; storage_path: string; captured_at: string }[] };
+type ReportRow = { id: string; inspection_date: string; started_at: string | null; submitted_at: string | null; status: string; notes: string | null; driver_name: string | null; opening_kilometers: number | null; shift: "morning" | "day" | "night" | null; driver: { full_name: string; employee_number: string | null } | null; truck: { fleet_number: string; registration: string; model: string | null } | null; answers: { result: string; checklist_item: { prompt: string } | null }[]; photos: { id: string; photo_type: string; storage_path: string; captured_at: string }[] };
 type GalleryPhoto = { id: string; photo_type: string; storage_path: string; captured_at: string; truck: string; driver: string; url?: string };
 
 export function AdminGate({ children }: { children: React.ReactNode }) {
@@ -36,7 +36,7 @@ function AdminWorkspace() {
     const [{ data: truckData, error: truckError }, { data: driverData, error: driverError }, { data: reportData, error: reportError }] = await Promise.all([
       supabase.from("trucks").select("id, fleet_number, registration, truck_type, model, size, status").order("fleet_number"),
       supabase.from("drivers").select("id, auth_user_id, employee_number, full_name, phone, role, active").order("full_name"),
-      supabase.from("daily_inspections").select("id, inspection_date, started_at, submitted_at, status, notes, driver_name, opening_kilometers, shift, driver:drivers(full_name, employee_number), truck:trucks(fleet_number, registration, model), answers:inspection_answers(result, checklist_item:checklist_items(label)), photos:inspection_photos(id, photo_type, storage_path, captured_at)").eq("inspection_date", reportDate).order("created_at", { ascending: false }),
+      supabase.from("daily_inspections").select("id, inspection_date, started_at, submitted_at, status, notes, driver_name, opening_kilometers, shift, driver:drivers(full_name, employee_number), truck:trucks(fleet_number, registration, model), answers:inspection_answers(result, checklist_item:checklist_items(prompt)), photos:inspection_photos(id, photo_type, storage_path, captured_at)").eq("inspection_date", reportDate).order("created_at", { ascending: false }),
     ]);
     if (truckError || driverError || reportError) toastError((truckError || driverError || reportError)?.message || "Unable to load admin data.");
     setTrucks((truckData ?? []) as AdminTruck[]); setDrivers((driverData ?? []) as AdminDriver[]); const rows = (reportData ?? []) as unknown as ReportRow[]; setReports(rows);
