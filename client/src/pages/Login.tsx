@@ -52,7 +52,15 @@ export default function Login({ onSuccess, mode }: { onSuccess: () => void; mode
 
         <section className="flex items-center px-4 py-5 sm:px-12 sm:py-12 lg:px-16">
           <div className="w-full max-w-md">
-            <div className="mb-5"><p className="mb-3 text-[11px] font-bold uppercase tracking-[0.22em] text-[#e9682a]">Welcome back</p><h2 className="font-slab text-2xl font-bold tracking-[-0.05em] text-[#2e4335] sm:text-4xl">Sign in to Field Ledger</h2><p className="mt-2 hidden text-sm leading-6 text-[#6d7a6d] sm:block">Use your fleet account to continue.</p></div>
+            <div className="mb-5">
+              <div className="mb-4 flex items-center gap-2.5">
+                <div className="grid h-9 w-9 place-items-center overflow-hidden rounded-lg bg-[#2f4638] shadow-[3px_3px_0_#e9682a]"><img src="/manus-storage/field-ledger-mark_99bde0f5.png" alt="Field Ledger logo" className="h-full w-full object-contain p-1.5" /></div>
+                <div><div className="font-slab text-lg font-bold tracking-[-0.03em] text-[#263c30]">Field Ledger</div><div className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#7b8775]">Fleet operations</div></div>
+              </div>
+              <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.2em] text-[#e9682a]">{mode === "admin" ? "Admin sign in" : "Driver sign in"}</p>
+              <h2 className="font-slab text-2xl font-bold tracking-[-0.05em] text-[#2e4335] sm:text-4xl">{mode === "admin" ? "Manage the fleet" : "Start your inspection"}</h2>
+              <p className="mt-2 text-xs leading-5 text-[#6d7a6d]">{mode === "admin" ? "Manage trucks, drivers, defects, and daily fleet records." : "Complete your assigned truck checklist and submit today’s evidence."}</p>
+            </div>
             <form onSubmit={submit} className="space-y-3.5 sm:space-y-5">
               {!mode && <div><label className="mb-2 block text-xs font-bold uppercase tracking-[0.12em] text-[#667466]">I am signing in as</label><div className="grid gap-2 sm:grid-cols-2">{roleOptions.map((option) => <button type="button" key={option.value} onClick={() => setRole(option.value)} className={cn("rounded-xl border px-3 py-3 text-left transition", role === option.value ? "border-[#2f8b5e] bg-[#e8eee5] text-[#2e4335]" : "border-[#d7d1c3] bg-[#fffdf6] text-[#7c877c] hover:border-[#a9b9a8]")}><span className="block text-xs font-bold">{option.label}</span><span className="mt-1 block text-[10px] leading-4">{option.description}</span></button>)}</div></div>}
               <div><label htmlFor="email" className="mb-2 block text-xs font-bold uppercase tracking-[0.12em] text-[#667466]">Work email</label><Input id="email" type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@company.com" className="h-11 rounded-xl border-[#d4cfc1] bg-[#fffdf6] text-sm" /></div>
