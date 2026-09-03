@@ -161,3 +161,14 @@ textarea {
     .container { max-width: 1440px; padding-left: 2.25rem; padding-right: 2.25rem; }
   }
 }
+
+@media (max-width: 768px) {
+  /* Avoid mobile compositor jitter from blur layers while scrolling the admin workspace. */
+  .paper-panel {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  html, body {
+    overscroll-behavior-y: none;
+  }
+}
