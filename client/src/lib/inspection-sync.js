@@ -132,6 +132,21 @@ async function submitOnline({ profile, selectedFleet, checks, notes, photoFiles,
   const answers = appItems.map((item, index) => ({ inspection_id: inspection.id, checklist_item_id: dbItems[index].id, result: checks[item.id] ? "pass" : "fail" }));
   const { error: answerError } = await supabase.from("inspection_answers").upsert(answers, { onConflict: "inspection_id,checklist_item_id" });
   if (answerError) throw answerError;
+  const { data: existingDefects, error: existingDefectsError } = await supabase.from("defects").select("title").eq("inspection_id", inspection.id);
+  if (existingDefectsError) throw existingDefectsError;
+  const existingTitles = new Set((existingDefects ?? []).map((defect) => defect.title));
+  const failedItems = checklistSections.flatMap((section) => section.items.filter((item) => checks[item.id] === false).map((item) => ({
+    inspection_id: inspection.id,
+    category: section.title || "general",
+    severity: "high",
+    title: item.label,
+    description: `Failed checklist item in ${section.title || "the inspection"}.`,
+    reported_by: profile.id,
+  }))).filter((defect) => !existingTitles.has(defect.title));
+  if (failedItems.length) {
+    const { error: defectError } = await supabase.from("defects").insert(failedItems);
+    if (defectError) throw defectError;
+  }
   for (const [photoType, file] of Object.entries(photoFiles ?? {})) {
     const upload = await uploadInspectionPhoto(file, inspection.id, photoType);
     if (upload.error) throw upload.error;
