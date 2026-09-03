@@ -4,11 +4,10 @@ import { describe, expect, it } from "vitest";
 import Home from "./Home";
 
 describe("Home inspection entry", () => {
-  it("opens directly to the name and selfie capture step", () => {
+  it("opens on the driver welcome screen with the inspection controls wired behind it", () => {
     const markup = renderToStaticMarkup(React.createElement(Home));
-    expect(markup).toContain("Start an inspection");
-    expect(markup).toContain("Full names and surnames");
-    expect(markup).toContain("Take selfie");
+    expect(markup).toContain("Start your inspection.");
+    expect(markup).toContain("Start inspections");
     expect(markup).not.toContain("Sign in");
   });
 });

@@ -26,7 +26,7 @@ export default function Login({ onSuccess, mode = "admin" }: { onSuccess: () => 
     <main className="grid min-h-[100dvh] place-items-center bg-[#FAF6EF] px-4 py-8 text-[#14532D] sm:px-6">
       <section className="w-full max-w-md rounded-[2rem] border border-[#E7DFD0] bg-white px-6 py-9 shadow-[0_24px_60px_-24px_rgba(20,83,45,0.25)] sm:px-10 sm:py-12">
         <div className="flex items-center gap-4">
-          <img src="/rovana-logo.png" alt="Rovana logo — letter R formed by a winding road" className="h-14 w-14 rounded-2xl object-cover" />
+          <img src={`${import.meta.env.BASE_URL}rovana-logo.png`} alt="Rovana logo — letter R formed by a winding road" className="h-14 w-14 rounded-2xl object-cover" />
           <div>
             <h2 className="font-slab text-[1.875rem] font-bold leading-none tracking-[-0.02em]">Rovana</h2>
             <p className="mt-1 text-[0.72rem] font-bold uppercase tracking-[0.14em] text-[#6B7264]">Fleet Operations</p>
