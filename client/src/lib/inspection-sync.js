@@ -114,11 +114,23 @@ async function submitOnline({ profile, selectedFleet, checks, notes, photoFiles,
   const appItems = flattenChecklistItems(checklistSections);
   if (!dbItems || dbItems.length !== appItems.length) throw new Error("The app checklist and Supabase checklist template do not match.");
   const inspectionDate = new Date().toISOString().slice(0, 10);
-  const { data: assignment } = await supabase.from("truck_assignments").select("id").eq("driver_id", profile.id).eq("truck_id", truck.id).eq("assignment_date", inspectionDate).maybeSingle();
-  const { data: inspection, error: inspectionError } = await supabase.from("daily_inspections").insert({ driver_id: profile.id, truck_id: truck.id, assignment_id: assignment?.id ?? null, checklist_template_id: template.id, inspection_date: inspectionDate, started_at: new Date().toISOString(), submitted_at: new Date().toISOString(), status: "completed", notes: notes?.trim() || null, signature_name: profile.full_name }).select("id").single();
-  if (inspectionError) throw inspectionError;
+  const { data: assignment, error: assignmentError } = await supabase.from("truck_assignments").select("id").eq("driver_id", profile.id).eq("truck_id", truck.id).eq("assignment_date", inspectionDate).maybeSingle();
+  if (assignmentError) throw assignmentError;
+  const inspectionPayload = { driver_id: profile.id, truck_id: truck.id, assignment_id: assignment?.id ?? null, checklist_template_id: template.id, inspection_date: inspectionDate, started_at: new Date().toISOString(), submitted_at: new Date().toISOString(), status: "completed", notes: notes?.trim() || null, signature_name: profile.full_name };
+  const { data: existingInspection, error: existingInspectionError } = await supabase.from("daily_inspections").select("id").eq("driver_id", profile.id).eq("truck_id", truck.id).eq("inspection_date", inspectionDate).maybeSingle();
+  if (existingInspectionError) throw existingInspectionError;
+  let inspection;
+  if (existingInspection?.id) {
+    const { data: updatedInspection, error: updateError } = await supabase.from("daily_inspections").update(inspectionPayload).eq("id", existingInspection.id).select("id").single();
+    if (updateError) throw updateError;
+    inspection = updatedInspection;
+  } else {
+    const { data: insertedInspection, error: inspectionError } = await supabase.from("daily_inspections").insert(inspectionPayload).select("id").single();
+    if (inspectionError) throw inspectionError;
+    inspection = insertedInspection;
+  }
   const answers = appItems.map((item, index) => ({ inspection_id: inspection.id, checklist_item_id: dbItems[index].id, result: checks[item.id] ? "pass" : "fail" }));
-  const { error: answerError } = await supabase.from("inspection_answers").insert(answers);
+  const { error: answerError } = await supabase.from("inspection_answers").upsert(answers, { onConflict: "inspection_id,checklist_item_id" });
   if (answerError) throw answerError;
   for (const [photoType, file] of Object.entries(photoFiles ?? {})) {
     const upload = await uploadInspectionPhoto(file, inspection.id, photoType);
