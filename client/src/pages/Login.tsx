@@ -54,7 +54,7 @@ export default function Login({ onSuccess, mode }: { onSuccess: () => void; mode
           <div className="w-full max-w-md">
             <div className="mb-5">
               <div className="mb-4 flex items-center gap-2.5">
-                <div className="grid h-9 w-9 place-items-center overflow-hidden rounded-lg bg-[#2f4638] shadow-[3px_3px_0_#e9682a]"><img src="/manus-storage/field-ledger-mark_99bde0f5.png" alt="Field Ledger logo" className="h-full w-full object-contain p-1.5" /></div>
+                <div className="grid h-9 w-9 place-items-center rounded-lg bg-[#2f4638] shadow-[3px_3px_0_#e9682a]" aria-label="Field Ledger logo"><TruckIcon className="h-5 w-5 text-[#f4a36f]" /></div>
                 <div><div className="font-slab text-lg font-bold tracking-[-0.03em] text-[#263c30]">Field Ledger</div><div className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#7b8775]">Fleet operations</div></div>
               </div>
               <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.2em] text-[#e9682a]">{mode === "admin" ? "Admin sign in" : "Driver sign in"}</p>
