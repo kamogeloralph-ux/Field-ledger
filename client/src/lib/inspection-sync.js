@@ -15,9 +15,9 @@ export async function saveInspectionDraft(draft) { const db = await openDraftDb(
 export async function loadInspectionDraft() { const db = await openDraftDb().catch(() => null); if (db) { const draft = await new Promise((resolve, reject) => { const request = db.transaction("drafts", "readonly").objectStore("drafts").get(DRAFT_KEY); request.onsuccess = () => resolve(request.result ?? null); request.onerror = () => reject(request.error); }); db.close(); return draft; } return deserializeFromStorage(browserStorage()?.getItem(`${DRAFT_STORE}:${DRAFT_KEY}`)); }
 export async function clearInspectionDraft() { const db = await openDraftDb().catch(() => null); if (db) { await new Promise((resolve, reject) => { const request = db.transaction("drafts", "readwrite").objectStore("drafts").delete(DRAFT_KEY); request.onsuccess = resolve; request.onerror = () => reject(request.error); }); db.close(); } browserStorage()?.removeItem(`${DRAFT_STORE}:${DRAFT_KEY}`); }
 export function flattenChecklistItems(sections) { return sections.flatMap((section) => section.items); }
-export function buildInspectionDraft({ fullName, selectedFleet, checks, notes, selfieFile, photoFiles, queued = false }) { return { fullName, selectedFleet, checks, notes, selfieFile, photoFiles, queued, savedAt: new Date().toISOString() }; }
+export function buildInspectionDraft({ fullName, selectedFleet, openingKilometers, shift, checks, notes, selfieFile, photoFiles, queued = false }) { return { fullName, selectedFleet, openingKilometers, shift, checks, notes, selfieFile, photoFiles, queued, savedAt: new Date().toISOString() }; }
 
-async function submitOnline({ fullName, selectedFleet, checks, notes, selfieFile, photoFiles, checklistSections }) {
+async function submitOnline({ fullName, selectedFleet, openingKilometers, shift, checks, notes, selfieFile, photoFiles, checklistSections }) {
   if (!supabase) throw new Error("Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.");
   if (!fullName?.trim()) throw new Error("Full names and surnames are required.");
   const { data: truck, error: truckError } = await supabase.from("trucks").select("id, fleet_number").eq("fleet_number", selectedFleet).maybeSingle();
@@ -31,7 +31,7 @@ async function submitOnline({ fullName, selectedFleet, checks, notes, selfieFile
   const appItems = flattenChecklistItems(checklistSections);
   if (!dbItems || dbItems.length !== appItems.length) throw new Error("The app checklist and Supabase checklist template do not match.");
   const inspectionDate = new Date().toISOString().slice(0, 10);
-  const payload = { driver_id: null, driver_name: fullName.trim(), truck_id: truck.id, checklist_template_id: template.id, inspection_date: inspectionDate, started_at: new Date().toISOString(), submitted_at: new Date().toISOString(), status: "completed", notes: notes?.trim() || null, signature_name: fullName.trim() };
+  const payload = { driver_id: null, driver_name: fullName.trim(), truck_id: truck.id, opening_kilometers: openingKilometers === "" || openingKilometers == null ? null : Number(openingKilometers), shift, checklist_template_id: template.id, inspection_date: inspectionDate, started_at: new Date().toISOString(), submitted_at: new Date().toISOString(), status: "completed", notes: notes?.trim() || null, signature_name: fullName.trim() };
   const { data: inspection, error: inspectionError } = await supabase.from("daily_inspections").insert(payload).select("id").single();
   if (inspectionError) throw inspectionError;
   const answers = appItems.map((item, index) => ({ inspection_id: inspection.id, checklist_item_id: dbItems[index].id, result: checks[item.id] ? "pass" : "fail" }));
