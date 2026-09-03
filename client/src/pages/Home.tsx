@@ -351,10 +351,68 @@ function FleetRegister({ onNavigate }: { onNavigate: (view: View) => void }) {
   return <div className="fade-up p-4 pb-28 sm:p-8 sm:pb-32 lg:p-10"><div className="mb-7 flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><SectionEyebrow icon={TruckIcon}>Master data · {liveTrucks.length} records</SectionEyebrow><h2 className="font-slab text-3xl font-bold tracking-[-0.04em] text-[#2e4335] sm:text-4xl">Fleet register</h2><p className="mt-2 text-sm leading-6 text-[#6d7a6d]">One source of truth for truck identity, availability, and daily assignment.</p></div><div className="flex gap-2"><Button variant="outline" onClick={() => toast.info("Export will be available once Supabase is connected.")} className="h-10 rounded-lg border-[#cfc9ba] bg-[#fbf8ef] text-xs font-bold uppercase tracking-[0.1em] text-[#536656]"><Download className="mr-2 h-3.5 w-3.5" />Export</Button><Button onClick={() => toast.info("Add truck will be enabled after Supabase connection.")} className="h-10 rounded-lg bg-[#2f4638] text-xs font-bold text-white hover:bg-[#24382d]"><Plus className="mr-2 h-4 w-4" />Add truck</Button></div></div><div className="paper-panel overflow-hidden rounded-2xl border border-[#d8d3c5]"><div className="flex flex-col gap-3 border-b border-[#dfd9ca] p-4 sm:flex-row sm:items-center sm:justify-between sm:px-6"><div className="relative w-full sm:max-w-sm"><Search className="absolute left-3 top-2.5 h-4 w-4 text-[#9ba59a]" /><Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search fleet, reg or driver" className="h-9 rounded-lg border-[#d5d0c2] bg-[#fbf8ef] pl-9 text-sm focus-visible:ring-[#e9682a]" /></div><div className="flex items-center gap-3 text-xs font-semibold text-[#7d897e]"><span><span className="font-mono font-bold text-[#2e4335]">{filtered.length}</span> shown</span><span className="h-4 w-px bg-[#d8d3c5]" /><span className={cn("font-bold", isLoading ? "text-[#a77927]" : isLive ? "text-[#2f8b5e]" : "text-[#a77927]")}>{isLoading ? "Syncing…" : isLive ? "Live from Supabase" : "Preview data"}</span></div></div><div className="hidden grid-cols-[1.1fr_1fr_1.4fr_0.9fr_0.8fr] gap-4 border-b border-[#e5dfd3] bg-[#f4f0e5] px-6 py-3 text-[10px] font-bold uppercase tracking-[0.16em] text-[#879185] sm:grid"><span>Fleet number</span><span>Registration</span><span>Assigned driver</span><span>Last inspection</span><span>Status</span></div><div className="divide-y divide-[#e5dfd3]">{filtered.map((truck) => <div key={truck.fleetNumber} className="grid gap-2 px-4 py-4 transition hover:bg-[#fcf8ee] sm:grid-cols-[1.1fr_1fr_1.4fr_0.9fr_0.8fr] sm:items-center sm:gap-4 sm:px-6"><div className="flex items-center justify-between sm:block"><div className="flex items-center gap-2"><div className="grid h-8 w-8 place-items-center rounded-lg bg-[#e8eee5] text-[#47654e]"><TruckIcon className="h-3.5 w-3.5" /></div><span className="font-mono text-sm font-bold tracking-[0.04em] text-[#2f4638]">{formatFleetNumber(truck.fleetNumber)}</span></div><div className="sm:hidden"><StatusPill status={truck.status} /></div></div><div className="pl-10 font-mono text-xs font-semibold tracking-[0.08em] text-[#e9682a] sm:pl-0">{truck.registration}</div><div className="pl-10 text-xs font-semibold text-[#607061] sm:pl-0">{truck.assignedDriver ?? <span className="text-[#a0a89f]">Unassigned</span>}</div><div className="pl-10 text-xs text-[#818b80] sm:pl-0">{truck.lastInspection}</div><div className="hidden sm:block"><StatusPill status={truck.status} /></div></div>)}</div></div><div className="mt-5 flex items-center gap-2 text-xs text-[#879185]"><ShieldCheck className="h-4 w-4 text-[#6a8d70]" />Fleet identity is linked to the daily inspection record.</div></div>;
 }
 
+type LiveDefect = {
+  id: string;
+  category: string;
+  severity: "low" | "medium" | "high" | "critical";
+  title: string;
+  description: string | null;
+  status: "open" | "in_progress" | "resolved" | "waived";
+  created_at: string;
+  reported_by: string | null;
+  resolved_by: string | null;
+  resolved_at: string | null;
+  inspection?: { inspection_date: string; truck?: { fleet_number: string; registration: string }[] | null; driver?: { full_name: string }[] | null }[] | null;
+};
+
 function Defects({ onNavigate }: { onNavigate: (view: View) => void }) {
-  const { role } = useFleetAuth();
-  const issues = [{ id: "DF-0902-014", fleet: "7512163", reg: "JL32RYGP", title: "Left rear indicator not working", category: "Safety", driver: "Nandi Khumalo", time: "Today · 05:35", status: "Open" }, { id: "DF-0902-013", fleet: "7442286", reg: "LN33TXGP", title: "Exterior image set incomplete", category: "Admin", driver: "Mandla Ndlovu", time: "Today · 05:51", status: "Awaiting evidence" }, { id: "DF-0901-028", fleet: "8563850", reg: "NB67DNGP", title: "Brake warning light recorded", category: "Safety", driver: "—", time: "Yesterday · 06:12", status: "Open" }];
-  return <div className="fade-up p-4 pb-28 sm:p-8 sm:pb-32 lg:p-10"><div className="mb-7 flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><SectionEyebrow icon={Wrench}>Follow-up · 03 open</SectionEyebrow><h2 className="font-slab text-3xl font-bold tracking-[-0.04em] text-[#2e4335] sm:text-4xl">Defect queue</h2><p className="mt-2 text-sm leading-6 text-[#6d7a6d]">Review anything that keeps a truck or inspection from being fully cleared.</p></div><RoleVisibleAction role={role} view="inspection"><Button onClick={() => onNavigate("inspection")} className="h-10 rounded-lg bg-[#e9682a] text-xs font-bold text-white hover:bg-[#d85d23]"><ClipboardCheck className="mr-2 h-4 w-4" />New inspection</Button></RoleVisibleAction></div><div className="grid gap-4 sm:grid-cols-3"><MetricCard label="Open issues" value="03" detail="2 safety-critical" icon={AlertTriangle} accent /><MetricCard label="Awaiting evidence" value="01" detail="Needs a photo set" icon={ImagePlus} /><MetricCard label="Resolved this week" value="14" detail="Across 78 records" icon={CheckCircle2} /></div><div className="mt-6 space-y-3">{issues.map((issue) => <div key={issue.id} className="paper-panel rounded-2xl border border-[#d8d3c5] p-4 sm:p-5"><div className="flex flex-col gap-4 sm:flex-row sm:items-center"><div className={cn("grid h-11 w-11 shrink-0 place-items-center rounded-xl", issue.category === "Safety" ? "bg-[#ffe4d2] text-[#b65323]" : "bg-[#f8edcf] text-[#a77927]")}><AlertTriangle className="h-5 w-5" /></div><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><span className="font-mono text-xs font-bold text-[#2e4335]">{formatFleetNumber(issue.fleet)}</span><span className="font-mono text-[11px] font-semibold tracking-[0.08em] text-[#e9682a]">{issue.reg}</span><span className={cn("rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em]", issue.category === "Safety" ? "bg-[#ffe4d2] text-[#a54b21]" : "bg-[#f8edcf] text-[#9a772d]")}>{issue.category}</span></div><h3 className="mt-1 font-slab text-lg font-bold text-[#334a39]">{issue.title}</h3><p className="mt-1 text-xs text-[#839083]">Reported by {issue.driver} · {issue.time} · {issue.id}</p></div><div className="flex items-center justify-between gap-4 sm:block sm:text-right"><StatusPill status={issue.status === "Open" ? "Needs review" : "In progress"} /><button onClick={() => toast.info("Issue detail will be connected to Supabase in the next step.")} className="ml-3 text-xs font-bold uppercase tracking-[0.12em] text-[#e9682a] sm:ml-0 sm:mt-3">Review <ChevronRight className="ml-1 inline h-3.5 w-3.5" /></button></div></div></div>)}</div></div>;
+  const { role, profile } = useFleetAuth();
+  const [issues, setIssues] = useState<LiveDefect[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [live, setLive] = useState(false);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+
+  const loadDefects = async () => {
+    if (!supabase) { setLoading(false); return; }
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("defects")
+      .select("id, category, severity, title, description, status, created_at, reported_by, resolved_by, resolved_at, inspection:daily_inspections(inspection_date, truck:trucks(fleet_number, registration), driver:drivers(full_name))")
+      .order("created_at", { ascending: false });
+    if (error) {
+      toast.error(`Unable to load live defects: ${error.message}`);
+      setLive(false);
+    } else {
+      setIssues((data ?? []) as unknown as LiveDefect[]);
+      setLive(true);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => { void loadDefects(); }, []);
+
+  const updateDefect = async (issue: LiveDefect, status: LiveDefect["status"]) => {
+    if (!supabase || !profile) return;
+    setUpdatingId(issue.id);
+    const payload = status === "resolved"
+      ? { status, resolved_by: profile.id, resolved_at: new Date().toISOString() }
+      : { status, resolved_by: null, resolved_at: null };
+    const { error } = await supabase.from("defects").update(payload).eq("id", issue.id);
+    if (error) {
+      toast.error(`Unable to update defect: ${error.message}`);
+      setUpdatingId(null);
+      return;
+    }
+    await supabase.from("audit_events").insert({ actor_id: profile.id, entity_type: "defect", entity_id: issue.id, action: `status_${status}`, metadata: { title: issue.title } });
+    toast.success(status === "resolved" ? "Defect marked resolved." : status === "waived" ? "Defect waived." : "Defect moved to in progress.");
+    setUpdatingId(null);
+    await loadDefects();
+  };
+
+  const openCount = issues.filter((issue) => issue.status === "open").length;
+  const evidenceCount = issues.filter((issue) => issue.category.toLowerCase() === "admin" && issue.status !== "resolved").length;
+  const resolvedCount = issues.filter((issue) => issue.status === "resolved").length;
+    return <div className="fade-up p-4 pb-28 sm:p-8 sm:pb-32 lg:p-10"><div className="mb-7 flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><SectionEyebrow icon={Wrench}>Follow-up · {openCount} open</SectionEyebrow><h2 className="font-slab text-3xl font-bold tracking-[-0.04em] text-[#2e4335] sm:text-4xl">Defect queue</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-[#6d7a6d]">Review live inspection exceptions, assign a response, and close the loop with an auditable status update.</p></div><div className="flex gap-2"><Button variant="outline" onClick={() => void loadDefects()} className="h-10 rounded-lg border-[#cfc9ba] bg-[#fbf8ef] text-xs font-bold"><Cloud className="mr-2 h-3.5 w-3.5" />Refresh</Button><RoleVisibleAction role={role} view="inspection"><Button onClick={() => onNavigate("inspection")} className="h-10 rounded-lg bg-[#e9682a] text-xs font-bold text-white hover:bg-[#d85d23]"><ClipboardCheck className="mr-2 h-4 w-4" />New inspection</Button></RoleVisibleAction></div></div><div className="grid gap-4 sm:grid-cols-3"><MetricCard label="Open issues" value={String(openCount).padStart(2, "0")} detail={live ? "Live from Supabase" : "Connect Supabase to review"} icon={AlertTriangle} accent /><MetricCard label="Awaiting evidence" value={String(evidenceCount).padStart(2, "0")} detail="Needs follow-up" icon={ImagePlus} /><MetricCard label="Resolved in queue" value={String(resolvedCount).padStart(2, "0")} detail="Closed by management" icon={CheckCircle2} /></div><div className="mt-6 space-y-3">{loading ? <div className="paper-panel rounded-2xl border border-[#d8d3c5] p-8 text-sm text-[#7c887b]">Loading live defect queue…</div> : !issues.length ? <div className="paper-panel rounded-2xl border border-[#d8d3c5] p-8 text-sm text-[#7c887b]">No defects are visible for this account.</div> : issues.map((issue) => { const inspection = issue.inspection?.[0]; const truck = inspection?.truck?.[0]; const driver = inspection?.driver?.[0]?.full_name || "Unknown driver"; return <div key={issue.id} className="paper-panel rounded-2xl border border-[#d8d3c5] p-4 sm:p-5"><div className="flex flex-col gap-4 lg:flex-row lg:items-center"><div className={cn("grid h-11 w-11 shrink-0 place-items-center rounded-xl", issue.severity === "critical" || issue.severity === "high" ? "bg-[#ffe4d2] text-[#b65323]" : "bg-[#f8edcf] text-[#a77927]")}><AlertTriangle className="h-5 w-5" /></div><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><span className="font-mono text-xs font-bold text-[#2e4335]">{truck ? formatFleetNumber(truck.fleet_number) : "Unassigned truck"}</span>{truck && <span className="font-mono text-[11px] font-semibold tracking-[0.08em] text-[#e9682a]">{truck.registration}</span>}<span className="rounded-full bg-[#f8edcf] px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-[#9a772d]">{issue.category}</span><span className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#8c9589]">{issue.severity}</span></div><h3 className="mt-1 font-slab text-lg font-bold text-[#334a39]">{issue.title}</h3><p className="mt-1 text-xs text-[#839083]">Reported by {driver} · {inspection?.inspection_date || "Date unavailable"} · {issue.id.slice(0, 8)}</p>{issue.description && <p className="mt-2 text-sm leading-5 text-[#657466]">{issue.description}</p>}</div><div className="flex flex-col gap-3 lg:min-w-[260px] lg:items-end"><StatusPill status={issue.status === "open" ? "Needs review" : issue.status === "in_progress" ? "In progress" : issue.status === "resolved" ? "Completed" : "Needs review"} /><div className="flex flex-wrap gap-2"><Button disabled={updatingId === issue.id || issue.status === "in_progress"} onClick={() => void updateDefect(issue, "in_progress")} variant="outline" className="h-8 rounded-lg border-[#d2cec0] bg-[#fbf8ef] text-xs font-bold">Start work</Button><Button disabled={updatingId === issue.id || issue.status === "resolved"} onClick={() => void updateDefect(issue, "resolved")} className="h-8 rounded-lg bg-[#2f4638] text-xs font-bold text-white">Resolve</Button><Button disabled={updatingId === issue.id || issue.status === "waived"} onClick={() => void updateDefect(issue, "waived")} variant="outline" className="h-8 rounded-lg border-[#e8c4b8] bg-[#fff6f1] text-xs font-bold text-[#a44b2d]">Waive</Button></div></div></div></div>; })}</div></div>;
 }
 
 export default function Home() {
