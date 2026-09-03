@@ -29,8 +29,8 @@ export default function Login({ onSuccess, mode }: { onSuccess: () => void; mode
   };
 
   return (
-    <main className="min-h-[100dvh] bg-[#ede9dd] px-3 py-3 text-[#2e4335] sm:px-8 sm:py-12">
-      <div className="mx-auto grid w-full max-w-md overflow-hidden rounded-2xl border border-[#d6d0c1] bg-[#fbf8ef] shadow-[0_24px_80px_rgba(46,67,53,0.14)] lg:max-w-6xl lg:grid-cols-[1.02fr_0.98fr]">
+    <main className="grid min-h-[100dvh] place-items-center bg-[#ede9dd] px-3 py-3 text-[#2e4335] sm:px-8 sm:py-8 lg:py-10">
+      <div className="mx-auto grid min-h-[calc(100dvh-1.5rem)] w-full max-w-md overflow-hidden rounded-2xl border border-[#d6d0c1] bg-[#fbf8ef] shadow-[0_24px_80px_rgba(46,67,53,0.14)] sm:min-h-[calc(100dvh-4rem)] lg:min-h-[min(760px,calc(100dvh-5rem))] lg:max-w-6xl lg:grid-cols-[1.02fr_0.98fr]">
         <section className="relative hidden overflow-hidden bg-[#203d2d] lg:block px-6 py-8 text-[#f5f0e2] sm:px-12 sm:py-12 lg:px-16 lg:py-16">
           <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full border border-[#f4a36f]/20" />
           <div className="absolute -bottom-28 -left-16 h-72 w-72 rounded-full border border-[#f4a36f]/20" />
@@ -50,10 +50,10 @@ export default function Login({ onSuccess, mode }: { onSuccess: () => void; mode
           </div>
         </section>
 
-        <section className="flex items-center px-4 py-5 sm:px-12 sm:py-12 lg:px-16">
+        <section className="flex min-h-full items-center px-5 py-7 sm:px-12 sm:py-12 lg:px-16">
           <div className="w-full max-w-md">
-            <div className="mb-5">
-              <div className="mb-4 flex items-center gap-2.5">
+            <div className="mb-4 sm:mb-5">
+              <div className="mb-3 flex items-center gap-2.5 sm:mb-4">
                 <div className="grid h-9 w-9 place-items-center rounded-lg bg-[#2f4638] shadow-[3px_3px_0_#e9682a]" aria-label="Field Ledger logo"><TruckIcon className="h-5 w-5 text-[#f4a36f]" /></div>
                 <div><div className="font-slab text-lg font-bold tracking-[-0.03em] text-[#263c30]">Field Ledger</div><div className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#7b8775]">Fleet operations</div></div>
               </div>
@@ -61,7 +61,7 @@ export default function Login({ onSuccess, mode }: { onSuccess: () => void; mode
               <h2 className="font-slab text-2xl font-bold tracking-[-0.05em] text-[#2e4335] sm:text-4xl">{mode === "admin" ? "Manage the fleet" : "Start your inspection"}</h2>
               <p className="mt-2 text-xs leading-5 text-[#6d7a6d]">{mode === "admin" ? "Manage trucks, drivers, defects, and daily fleet records." : "Complete your assigned truck checklist and submit today’s evidence."}</p>
             </div>
-            <form onSubmit={submit} className="space-y-3.5 sm:space-y-5">
+            <form onSubmit={submit} className="space-y-3 sm:space-y-4">
               {!mode && <div><label className="mb-2 block text-xs font-bold uppercase tracking-[0.12em] text-[#667466]">I am signing in as</label><div className="grid gap-2 sm:grid-cols-2">{roleOptions.map((option) => <button type="button" key={option.value} onClick={() => setRole(option.value)} className={cn("rounded-xl border px-3 py-3 text-left transition", role === option.value ? "border-[#2f8b5e] bg-[#e8eee5] text-[#2e4335]" : "border-[#d7d1c3] bg-[#fffdf6] text-[#7c877c] hover:border-[#a9b9a8]")}><span className="block text-xs font-bold">{option.label}</span><span className="mt-1 block text-[10px] leading-4">{option.description}</span></button>)}</div></div>}
               <div><label htmlFor="email" className="mb-2 block text-xs font-bold uppercase tracking-[0.12em] text-[#667466]">Work email</label><Input id="email" type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@company.com" className="h-11 rounded-xl border-[#d4cfc1] bg-[#fffdf6] text-sm" /></div>
               <div><label htmlFor="password" className="mb-2 block text-xs font-bold uppercase tracking-[0.12em] text-[#667466]">Password</label><Input id="password" type="password" autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Enter your password" className="h-11 rounded-xl border-[#d4cfc1] bg-[#fffdf6] text-sm" /></div>
