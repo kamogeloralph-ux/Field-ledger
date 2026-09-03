@@ -41,7 +41,7 @@ import { checklistSections, demoDrivers, inspections, today, trucks, type Truck 
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { type FleetRole, useFleetAuth } from "@/contexts/FleetAuthContext";
 import { canAccessView, defaultViewForRole, type WorkspaceView } from "@/lib/access-control";
-import { buildInspectionDraft, loadInspectionDraft, saveInspectionDraft, submitInspection as submitInspectionToSupabase, syncQueuedInspection } from "@/lib/inspection-sync.js";
+import { buildInspectionDraft, clearInspectionDraft, loadInspectionDraft, saveInspectionDraft, submitInspection as submitInspectionToSupabase, syncQueuedInspection } from "@/lib/inspection-sync.js";
 import { formatFleetNumber, onlyDigits } from "@/lib/fleet-number";
 
 const markUrl = "/manus-storage/field-ledger-mark_99bde0f5.png";
@@ -58,6 +58,16 @@ const photoSlots = [
   { id: "cab", label: "Cab interior", helper: "Controls & seat" },
   { id: "dashboard", label: "Dashboard", helper: "Warning lights" },
 ];
+
+function describeInspectionError(error: unknown) {
+  if (error instanceof Error && error.message) return error.message;
+  if (error && typeof error === "object") {
+    const value = error as { message?: string; details?: string; hint?: string; code?: string };
+    const parts = [value.message, value.details, value.hint, value.code ? `code ${value.code}` : undefined].filter(Boolean);
+    if (parts.length) return parts.join(" — ");
+  }
+  return "The server rejected the inspection";
+}
 
 function StatusPill({ status }: { status: Truck["status"] | "Completed" | "Needs review" | "In progress" }) {
   const styles = {
@@ -170,6 +180,7 @@ function Inspection({ onNavigate }: { onNavigate: (view: View) => void }) {
   const [notes, setNotes] = useState("");
   const queuedDraftRef = useRef(false);
   const draftLoadedRef = useRef(false);
+  const skipNextAutosaveRef = useRef(false);
   const selectedTruck = liveTrucks.find((truck) => truck.fleetNumber === selectedFleet) ?? liveTrucks[0];
   const totalChecks = checklistSections.reduce((sum, section) => sum + section.items.length, 0);
 
@@ -229,6 +240,10 @@ function Inspection({ onNavigate }: { onNavigate: (view: View) => void }) {
 
   useEffect(() => {
     if (!profile || !draftLoadedRef.current) return;
+    if (skipNextAutosaveRef.current) {
+      skipNextAutosaveRef.current = false;
+      return;
+    }
     void saveInspectionDraft(buildInspectionDraft({ selectedFleet, checks, notes, photoFiles, queued: queuedDraftRef.current }));
   }, [checks, notes, photoFiles, profile, selectedFleet]);
 
@@ -291,15 +306,26 @@ function Inspection({ onNavigate }: { onNavigate: (view: View) => void }) {
     try {
       const result = await submitInspectionToSupabase({ profile, selectedFleet, checks, notes, photoFiles, checklistSections });
       queuedDraftRef.current = Boolean(result.queued);
-      toast.success(result.queued ? "Inspection saved offline and will upload when connected." : `Inspection for ${selectedFleet} queued for supervisor review.`);
-      if (result.queued) onNavigate("overview");
+      if (result.queued) {
+        toast.success("Inspection saved offline and will upload when connected.");
+        onNavigate("overview");
+        return;
+      }
+      skipNextAutosaveRef.current = true;
+      queuedDraftRef.current = false;
+      await clearInspectionDraft();
+      setChecks({});
+      setPhotos({});
+      setPhotoFiles({});
+      setNotes("");
+      toast.success(`Inspection for ${selectedFleet} submitted. A new checklist is ready.`);
     } catch (error) {
       try {
         await saveInspectionDraft(buildInspectionDraft({ selectedFleet, checks, notes, photoFiles, queued: false }));
       } catch {
         // Keep the original submission error visible; the autosave remains best-effort.
       }
-      toast.error(error instanceof Error ? `${error.message} Your draft remains saved on this device.` : "Unable to submit inspection. Your draft remains saved on this device.");
+      toast.error(`Unable to submit inspection: ${describeInspectionError(error)} Your draft remains saved on this device.`);
     }
   };
 
