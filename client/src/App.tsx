@@ -1,4 +1,5 @@
 /* Field Ledger direction: calm industrial editorial UI, asymmetric operational layout, evidence before decoration. */
+import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -21,19 +22,21 @@ function Router() {
 }
 
 function AuthGate() {
-  const { loading, profile } = useFleetAuth();
+  const { loading, profile, signOut } = useFleetAuth();
   const [, navigate] = useLocation();
+  const [switchingWorkspace, setSwitchingWorkspace] = useState(false);
+  useEffect(() => {
+    if (!profile || profile.role === "driver" || switchingWorkspace) return;
+    setSwitchingWorkspace(true);
+    void signOut().finally(() => setSwitchingWorkspace(false));
+  }, [profile, signOut, switchingWorkspace]);
 
   if (loading) {
     return <div className="grid min-h-screen place-items-center bg-[#ede9dd] text-[#2e4335]"><Loader2 className="h-7 w-7 animate-spin text-[#e9682a]" /></div>;
   }
 
   if (!profile) return <Login mode="driver" onSuccess={() => navigate("/")} />;
-  if (profile.role !== "driver") {
-    const adminUrl = `${import.meta.env.BASE_URL}admin.html`;
-    if (window.location.pathname !== new URL(adminUrl, window.location.origin).pathname) window.location.replace(adminUrl);
-    return <div className="grid min-h-screen place-items-center bg-[#ede9dd] text-[#2e4335]">Opening admin workspace…</div>;
-  }
+  if (switchingWorkspace || profile.role !== "driver") return <div className="grid min-h-screen place-items-center bg-[#ede9dd] text-[#2e4335]">Returning to driver sign in…</div>;
   return <Router />;
 }
 
