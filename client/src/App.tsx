@@ -29,6 +29,11 @@ function AuthGate() {
   }
 
   if (!profile) return <Login onSuccess={() => navigate("/")} />;
+  if (profile.role !== "driver") {
+    const adminUrl = `${import.meta.env.BASE_URL}admin.html`;
+    if (window.location.pathname !== new URL(adminUrl, window.location.origin).pathname) window.location.replace(adminUrl);
+    return <div className="grid min-h-screen place-items-center bg-[#ede9dd] text-[#2e4335]">Opening admin workspace…</div>;
+  }
   return <Router />;
 }
 

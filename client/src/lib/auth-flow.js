@@ -1,11 +1,11 @@
 import { supabase } from "./supabase";
 
 /**
- * Sign in a driver, supervisor, or admin with Supabase Auth and load the
+ * Sign in a driver or admin with Supabase Auth and load the
  * matching public.drivers profile. The publishable browser key is sufficient;
  * privileged keys must never be imported here.
  *
- * @param {{ email: string, password: string, expectedRole?: "driver" | "supervisor" | "admin" }} input
+ * @param {{ email: string, password: string, expectedRole?: "driver" | "admin" }} input
  * @returns {Promise<{ user: object, profile: object }>}
  */
 export function isAllowedRole(actualRole, expectedRole) {

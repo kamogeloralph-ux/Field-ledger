@@ -6,7 +6,7 @@ import {
   subscribeToFleetAuth,
 } from "@/lib/auth-flow.js";
 
-export type FleetRole = "driver" | "supervisor" | "admin";
+export type FleetRole = "driver" | "admin";
 
 export type FleetProfile = {
   id: string;

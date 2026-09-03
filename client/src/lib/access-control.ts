@@ -4,7 +4,6 @@ export type WorkspaceView = "overview" | "inspection" | "fleet" | "defects";
 
 const allowedViews: Record<FleetRole, WorkspaceView[]> = {
   driver: ["inspection"],
-  supervisor: ["overview", "defects"],
   admin: ["overview", "fleet", "defects"],
 };
 

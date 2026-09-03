@@ -10,15 +10,11 @@ describe("RoleVisibleAction", () => {
     const driverMarkup = renderToStaticMarkup(
       React.createElement(RoleVisibleAction, { role: "driver", view: "inspection" }, action),
     );
-    const supervisorMarkup = renderToStaticMarkup(
-      React.createElement(RoleVisibleAction, { role: "supervisor", view: "inspection" }, action),
-    );
     const adminMarkup = renderToStaticMarkup(
       React.createElement(RoleVisibleAction, { role: "admin", view: "inspection" }, action),
     );
 
     expect(driverMarkup).toContain("Start inspection");
-    expect(supervisorMarkup).not.toContain("Start inspection");
     expect(adminMarkup).not.toContain("Start inspection");
   });
 

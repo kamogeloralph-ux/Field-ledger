@@ -9,10 +9,10 @@ describe("workspace role access", () => {
     expect(canAccessView("driver", "inspection")).toBe(true);
   });
 
-  it("gives supervisors review access without master-data access", () => {
-    expect(viewsForRole("supervisor")).toEqual(["overview", "defects"]);
-    expect(canAccessView("supervisor", "fleet")).toBe(false);
-    expect(canAccessView("supervisor", "defects")).toBe(true);
+  it("keeps admins as the only management role", () => {
+    expect(viewsForRole("admin")).toEqual(["overview", "fleet", "defects"]);
+    expect(canAccessView("admin", "fleet")).toBe(true);
+    expect(canAccessView("admin", "defects")).toBe(true);
   });
 
   it("allows admins to access the fleet register", () => {

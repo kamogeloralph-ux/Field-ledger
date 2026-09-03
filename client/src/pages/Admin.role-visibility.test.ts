@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { AdminGate } from "./Admin";
 
-let activeRole: "driver" | "supervisor" | "admin" = "supervisor";
+let activeRole: "driver" | "admin" = "driver";
 
 vi.mock("@/contexts/FleetAuthContext", () => ({
   useFleetAuth: () => ({
@@ -16,12 +16,9 @@ vi.mock("@/contexts/FleetAuthContext", () => ({
 vi.mock("@/lib/supabase", () => ({ supabase: null, isSupabaseConfigured: false }));
 
 describe("AdminGate", () => {
-  it("blocks drivers and allows supervisors into the management workspace", () => {
+  it("blocks drivers from admin controls", () => {
     activeRole = "driver";
     expect(renderToStaticMarkup(React.createElement(AdminGate, { children: React.createElement("div", null, "Admin controls") }))).toContain("Management access required");
-
-    activeRole = "supervisor";
-    expect(renderToStaticMarkup(React.createElement(AdminGate, { children: React.createElement("div", null, "Admin controls") }))).not.toContain("Management access required");
   });
 
   it("allows an admin through to the actual management controls", () => {

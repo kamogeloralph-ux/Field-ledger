@@ -7,7 +7,6 @@ import { type FleetRole, useFleetAuth } from "@/contexts/FleetAuthContext";
 
 const roleOptions: Array<{ value: FleetRole; label: string; description: string }> = [
   { value: "driver", label: "Driver", description: "Complete today’s truck inspection" },
-  { value: "supervisor", label: "Supervisor", description: "Review inspections and defects" },
   { value: "admin", label: "Admin", description: "Manage the fleet and driver roster" },
 ];
 
@@ -55,7 +54,7 @@ export default function Login({ onSuccess }: { onSuccess: () => void }) {
           <div className="w-full max-w-md">
             <div className="mb-8"><p className="mb-3 text-[11px] font-bold uppercase tracking-[0.22em] text-[#e9682a]">Welcome back</p><h2 className="font-slab text-3xl font-bold tracking-[-0.05em] text-[#2e4335] sm:text-4xl">Sign in to Field Ledger</h2><p className="mt-3 text-sm leading-6 text-[#6d7a6d]">Use the account created for your fleet role.</p></div>
             <form onSubmit={submit} className="space-y-5">
-              <div><label className="mb-2 block text-xs font-bold uppercase tracking-[0.12em] text-[#667466]">I am signing in as</label><div className="grid gap-2 sm:grid-cols-3">{roleOptions.map((option) => <button type="button" key={option.value} onClick={() => setRole(option.value)} className={cn("rounded-xl border px-3 py-3 text-left transition", role === option.value ? "border-[#2f8b5e] bg-[#e8eee5] text-[#2e4335]" : "border-[#d7d1c3] bg-[#fffdf6] text-[#7c877c] hover:border-[#a9b9a8]")}><span className="block text-xs font-bold">{option.label}</span><span className="mt-1 block text-[10px] leading-4">{option.description}</span></button>)}</div></div>
+              <div><label className="mb-2 block text-xs font-bold uppercase tracking-[0.12em] text-[#667466]">I am signing in as</label><div className="grid gap-2 sm:grid-cols-2">{roleOptions.map((option) => <button type="button" key={option.value} onClick={() => setRole(option.value)} className={cn("rounded-xl border px-3 py-3 text-left transition", role === option.value ? "border-[#2f8b5e] bg-[#e8eee5] text-[#2e4335]" : "border-[#d7d1c3] bg-[#fffdf6] text-[#7c877c] hover:border-[#a9b9a8]")}><span className="block text-xs font-bold">{option.label}</span><span className="mt-1 block text-[10px] leading-4">{option.description}</span></button>)}</div></div>
               <div><label htmlFor="email" className="mb-2 block text-xs font-bold uppercase tracking-[0.12em] text-[#667466]">Work email</label><Input id="email" type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@company.com" className="h-11 rounded-xl border-[#d4cfc1] bg-[#fffdf6] text-sm" /></div>
               <div><label htmlFor="password" className="mb-2 block text-xs font-bold uppercase tracking-[0.12em] text-[#667466]">Password</label><Input id="password" type="password" autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Enter your password" className="h-11 rounded-xl border-[#d4cfc1] bg-[#fffdf6] text-sm" /></div>
               {(localError || error) && <div className="rounded-xl border border-[#e7b6aa] bg-[#fff0ec] px-4 py-3 text-sm leading-5 text-[#a33f2a]">{localError || error}</div>}
