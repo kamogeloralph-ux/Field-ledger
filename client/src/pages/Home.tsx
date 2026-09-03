@@ -21,6 +21,25 @@ const allItems: { id: string; label: string; required: boolean }[] = checklistSe
 type Step = "identity" | "checklist" | "evidence";
 type PhotoMap = Record<string, string>;
 
+async function compressCapturedImage(file: File, maxDimension = 1280): Promise<File> {
+  if (!file.type.startsWith("image/") || file.size < 700_000) return file;
+  try {
+    const bitmap = typeof createImageBitmap === "function" ? await createImageBitmap(file) : null;
+    if (!bitmap) return file;
+    const scale = Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const context = canvas.getContext("2d");
+    if (!context) { bitmap.close(); return file; }
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close();
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.78));
+    if (!blob) return file;
+    return new File([blob], file.name.replace(/\.[^.]+$/, "") + ".jpg", { type: "image/jpeg", lastModified: file.lastModified });
+  } catch { return file; }
+}
+
 function AppLogo() {
   return <div className="flex items-center gap-3"><div className="grid h-10 w-10 place-items-center overflow-hidden rounded-xl bg-[#2f4638] shadow-[4px_4px_0_#e9682a]"><img src={markUrl} alt="Field Ledger" className="h-full w-full object-contain p-1.5" /></div><div><div className="font-slab text-lg font-bold text-[#263c30]">Field Ledger</div><div className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#7b8775]">Fleet inspection</div></div></div>;
 }
@@ -72,8 +91,9 @@ export default function Home() {
     window.addEventListener("online", retry); void retry(); return () => window.removeEventListener("online", retry);
   }, []);
 
-  const captureSelfie = (event: React.ChangeEvent<HTMLInputElement>) => { const file = event.target.files?.[0]; if (!file) return; setSelfieFile(file); setSelfiePreview(URL.createObjectURL(file)); event.target.value = ""; };
-  const capturePhoto = (id: string, file?: File) => { if (!file) return; const scrollY = window.scrollY; setPhotoFiles((current) => ({ ...current, [id]: file })); setPhotos((current) => ({ ...current, [id]: URL.createObjectURL(file) })); requestAnimationFrame(() => window.scrollTo({ top: scrollY })); window.setTimeout(() => window.scrollTo({ top: scrollY }), 250); };
+  useEffect(() => () => { if (selfiePreview?.startsWith("blob:")) URL.revokeObjectURL(selfiePreview); }, [selfiePreview]);
+  const captureSelfie = async (event: React.ChangeEvent<HTMLInputElement>) => { const file = event.target.files?.[0]; event.target.value = ""; if (!file) return; const compactFile = await compressCapturedImage(file); setSelfieFile(compactFile); setSelfiePreview((current) => { if (current?.startsWith("blob:")) URL.revokeObjectURL(current); return URL.createObjectURL(compactFile); }); };
+  const capturePhoto = async (id: string, file?: File) => { if (!file) return; const scrollY = window.scrollY; const compactFile = await compressCapturedImage(file); setPhotoFiles((current) => ({ ...current, [id]: compactFile })); setPhotos((current) => { if (current[id]?.startsWith("blob:")) URL.revokeObjectURL(current[id]); return { ...current, [id]: URL.createObjectURL(compactFile) }; }); requestAnimationFrame(() => window.scrollTo({ top: scrollY })); window.setTimeout(() => window.scrollTo({ top: scrollY }), 250); };
   const setCheck = (id: string, value: boolean) => setChecks((current) => ({ ...current, [id]: value }));
   const next = () => { if (step === "identity") { if (!fullName.trim() || fullName.trim().split(/\s+/).length < 2) return toast.error("Enter your full names and surnames."); if (!fleetNumber.trim()) return toast.error("Enter a fleet number."); if (openingKilometers === "" || Number(openingKilometers) < 0) return toast.error("Enter valid opening kilometers."); if (!shift) return toast.error("Select a shift."); if (!selfieFile) return toast.error("Take a selfie before continuing."); setStep("checklist"); } else if (step === "checklist") { if (!checklistReady) return toast.error(`${allItems.length - answeredCount} checklist answers still need a response.`); setStep("evidence"); } };
   const submit = async () => { if (!identityReady) return toast.error("Full names, surnames, and selfie are required."); if (!checklistReady) return toast.error("Answer every checklist item before submitting."); if (!evidenceReady) return toast.error(`Capture all ${photoSlots.length} evidence photos before submitting.`); setSaving(true); try { const result: any = await submitInspection({ fullName: fullName.trim(), selectedFleet: fleetNumber.trim(), openingKilometers, shift, checks, notes, selfieFile, photoFiles, checklistSections }); if (result.queued) { toast.success("Inspection saved on this device. It will upload automatically when internet returns."); } else { toast.success("Inspection submitted successfully."); await clearInspectionDraft(); } setFullName(""); setFleetNumber(""); setOpeningKilometers(""); setShift(""); setSelfieFile(undefined); setSelfiePreview(undefined); setPhotoFiles({}); setPhotos({}); setChecks({}); setNotes(""); setStep("identity"); } catch (error) { toast.error(error instanceof Error ? error.message : "Unable to submit. Your draft is still saved safely."); } finally { setSaving(false); } };
