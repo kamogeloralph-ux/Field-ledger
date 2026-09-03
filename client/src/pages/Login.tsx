@@ -1,27 +1,21 @@
+import { ArrowRight } from "lucide-react";
 import { useState } from "react";
-import { ArrowRight, LockKeyhole, ShieldCheck, Truck as TruckIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
 import { type FleetRole, useFleetAuth } from "@/contexts/FleetAuthContext";
 
-const roleOptions: Array<{ value: FleetRole; label: string; description: string }> = [
-  { value: "driver", label: "Driver", description: "Complete today’s truck inspection" },
-  { value: "admin", label: "Admin", description: "Manage the fleet and driver roster" },
-];
-
-export default function Login({ onSuccess, mode }: { onSuccess: () => void; mode?: FleetRole }) {
+export default function Login({ onSuccess, mode = "admin" }: { onSuccess: () => void; mode?: FleetRole }) {
   const { signIn, loading, error } = useFleetAuth();
-  const [role, setRole] = useState<FleetRole>(mode ?? "driver");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [localError, setLocalError] = useState<string | null>(null);
+  const admin = mode === "admin";
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setLocalError(null);
     try {
-      await signIn(email, password, mode ?? role);
+      await signIn(email, password, mode);
       onSuccess();
     } catch (err) {
       setLocalError(err instanceof Error ? err.message : "Sign-in failed. Check your details and try again.");
@@ -29,49 +23,32 @@ export default function Login({ onSuccess, mode }: { onSuccess: () => void; mode
   };
 
   return (
-    <main className="grid min-h-[100dvh] place-items-center bg-[#ede9dd] px-3 py-3 text-[#2e4335] sm:px-8 sm:py-8 lg:py-10">
-      <div className="mx-auto grid min-h-[calc(100dvh-1.5rem)] w-full max-w-md overflow-hidden rounded-2xl border border-[#d6d0c1] bg-[#fbf8ef] shadow-[0_24px_80px_rgba(46,67,53,0.14)] sm:min-h-[calc(100dvh-4rem)] lg:min-h-[min(760px,calc(100dvh-5rem))] lg:max-w-6xl lg:grid-cols-[1.02fr_0.98fr]">
-        <section className="relative hidden overflow-hidden bg-[#203d2d] lg:block px-6 py-8 text-[#f5f0e2] sm:px-12 sm:py-12 lg:px-16 lg:py-16">
-          <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full border border-[#f4a36f]/20" />
-          <div className="absolute -bottom-28 -left-16 h-72 w-72 rounded-full border border-[#f4a36f]/20" />
-          <div className="relative flex h-full flex-col justify-between gap-16">
-            <div>
-              <div className="mb-12 flex items-center gap-3">
-                <div className="grid h-11 w-11 place-items-center rounded-xl border border-[#f4a36f]/60 bg-[#f4a36f]/15"><img src="/rovana-mark.svg" alt="Rovana" className="h-5 w-5 rounded-md" /></div>
-                <div><p className="font-slab text-xl font-bold tracking-[-0.04em]">Rovana</p><p className="text-[10px] uppercase tracking-[0.22em] text-[#b7c6b6]">Fleet operations</p></div>
-              </div>
-              <p className="mb-4 text-[11px] font-bold uppercase tracking-[0.22em] text-[#f4a36f]">Secure yard access</p>
-              <h1 className="max-w-lg font-slab text-4xl font-bold leading-[0.98] tracking-[-0.05em] sm:text-6xl">Start every shift with a clear record.</h1>
-              <p className="mt-6 max-w-md text-sm leading-7 text-[#d2ded0]">Sign in to inspect assigned trucks, review live fleet status, or manage the roster from a single operational source of truth.</p>
-            </div>
-            <div className="grid gap-3 text-xs text-[#cad8ca] sm:grid-cols-3">
-              {[["01", "Identity"], ["02", "Evidence"], ["03", "Accountability"]].map(([number, label]) => <div key={number} className="border-t border-[#b7c6b6]/25 pt-3"><span className="font-mono text-[#f4a36f]">{number}</span><p className="mt-2 font-semibold">{label}</p></div>)}
-            </div>
+    <main className="grid min-h-[100dvh] place-items-center bg-[#FAF6EF] px-4 py-8 text-[#14532D] sm:px-6">
+      <section className="w-full max-w-md rounded-[2rem] border border-[#E7DFD0] bg-white px-6 py-9 shadow-[0_24px_60px_-24px_rgba(20,83,45,0.25)] sm:px-10 sm:py-12">
+        <div className="flex items-center gap-4">
+          <img src="/rovana-logo.png" alt="Rovana logo — letter R formed by a winding road" className="h-14 w-14 rounded-2xl object-cover" />
+          <div>
+            <h2 className="font-slab text-[1.875rem] font-bold leading-none tracking-[-0.02em]">Rovana</h2>
+            <p className="mt-1 text-[0.72rem] font-bold uppercase tracking-[0.14em] text-[#6B7264]">Fleet Operations</p>
           </div>
-        </section>
-
-        <section className="flex min-h-full items-center px-5 py-7 sm:px-12 sm:py-12 lg:px-16">
-          <div className="w-full max-w-md">
-            <div className="mb-4 sm:mb-5">
-              <div className="mb-3 flex items-center gap-2.5 sm:mb-4">
-                <div className="grid h-9 w-9 place-items-center rounded-lg bg-[#2f4638] shadow-[3px_3px_0_#e9682a]" aria-label="Rovana logo"><img src="/rovana-mark.svg" alt="Rovana" className="h-5 w-5 rounded-md" /></div>
-                <div><div className="font-slab text-lg font-bold tracking-[-0.03em] text-[#263c30]">Rovana</div><div className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#7b8775]">Fleet operations</div></div>
-              </div>
-              <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.2em] text-[#e9682a]">{mode === "admin" ? "Admin sign in" : "Driver sign in"}</p>
-              <h2 className="font-slab text-2xl font-bold tracking-[-0.05em] text-[#2e4335] sm:text-4xl">{mode === "admin" ? "Manage the fleet" : "Start your inspection"}</h2>
-              <p className="mt-2 text-xs leading-5 text-[#6d7a6d]">{mode === "admin" ? "Manage trucks, drivers, defects, and daily fleet records." : "Complete your assigned truck checklist and submit today’s evidence."}</p>
-            </div>
-            <form onSubmit={submit} className="space-y-3 sm:space-y-4">
-              {!mode && <div><label className="mb-2 block text-xs font-bold uppercase tracking-[0.12em] text-[#667466]">I am signing in as</label><div className="grid gap-2 sm:grid-cols-2">{roleOptions.map((option) => <button type="button" key={option.value} onClick={() => setRole(option.value)} className={cn("rounded-xl border px-3 py-3 text-left transition", role === option.value ? "border-[#2f8b5e] bg-[#e8eee5] text-[#2e4335]" : "border-[#d7d1c3] bg-[#fffdf6] text-[#7c877c] hover:border-[#a9b9a8]")}><span className="block text-xs font-bold">{option.label}</span><span className="mt-1 block text-[10px] leading-4">{option.description}</span></button>)}</div></div>}
-              <div><label htmlFor="email" className="mb-2 block text-xs font-bold uppercase tracking-[0.12em] text-[#667466]">Work email</label><Input id="email" type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@company.com" className="h-11 rounded-xl border-[#d4cfc1] bg-[#fffdf6] text-sm" /></div>
-              <div><label htmlFor="password" className="mb-2 block text-xs font-bold uppercase tracking-[0.12em] text-[#667466]">Password</label><Input id="password" type="password" autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Enter your password" className="h-11 rounded-xl border-[#d4cfc1] bg-[#fffdf6] text-sm" /></div>
-              {(localError || error) && <div className="rounded-xl border border-[#e7b6aa] bg-[#fff0ec] px-4 py-3 text-sm leading-5 text-[#a33f2a]">{localError || error}</div>}
-              <Button type="submit" disabled={loading} className="h-11 w-full rounded-xl bg-[#e9682a] text-sm font-bold text-white hover:bg-[#d95a20]">{loading ? "Signing in…" : "Continue to workspace"}<ArrowRight className="ml-2 h-4 w-4" /></Button>
-            </form>
-            <div className="mt-5 hidden grid gap-3 border-t sm:grid border-[#ded8ca] pt-6 text-xs text-[#788477] sm:grid-cols-2"><div className="flex gap-2"><LockKeyhole className="h-4 w-4 shrink-0 text-[#6a8d70]" /><span>Session protected by Supabase Auth</span></div><div className="flex gap-2"><ShieldCheck className="h-4 w-4 shrink-0 text-[#6a8d70]" /><span>Access follows your fleet role</span></div></div>
-          </div>
-        </section>
-      </div>
+        </div>
+        <p className="mt-10 text-[0.72rem] font-bold uppercase tracking-[0.14em] text-[#E8590C]">{admin ? "Admin sign in" : "Driver sign in"}</p>
+        <h1 className="mt-2 font-slab text-4xl font-bold leading-[1.15] tracking-[-0.02em] sm:text-[2.25rem]">Run the road.<br />Not the paperwork.</h1>
+        <p className="mt-3 text-base text-[#6B7264]">{admin ? "Manage trucks, drivers, defects, and daily fleet records." : "Complete your assigned truck checklist and submit today’s evidence."}</p>
+        <form onSubmit={submit} className="mt-8 flex flex-col gap-5">
+          <label className="block">
+            <span className="text-[0.72rem] font-bold uppercase tracking-[0.14em] text-[#6B7264]">Work email</span>
+            <Input type="email" required autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@company.com" className="mt-2 h-auto w-full rounded-2xl border-[#E7DFD0] bg-white px-5 py-4 text-base text-[#14532D] outline-none focus:border-[#E8590C] focus:ring-4 focus:ring-[#E8590C]/15" />
+          </label>
+          <label className="block">
+            <span className="text-[0.72rem] font-bold uppercase tracking-[0.14em] text-[#6B7264]">Password</span>
+            <Input type="password" required autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Enter your password" className="mt-2 h-auto w-full rounded-2xl border-[#E7DFD0] bg-white px-5 py-4 text-base text-[#14532D] outline-none focus:border-[#E8590C] focus:ring-4 focus:ring-[#E8590C]/15" />
+          </label>
+          {(localError || error) && <div className="rounded-2xl border border-[#f0b7a5] bg-[#fff1ec] px-4 py-3 text-sm leading-5 text-[#a33f2a]">{localError || error}</div>}
+          <Button type="submit" disabled={loading} className="mt-1 flex h-auto w-full items-center justify-center gap-3 rounded-full bg-gradient-to-br from-[#E8590C] to-[#D9480F] px-6 py-4 text-base font-medium text-[#FFF8F0] shadow-[0_12px_28px_-10px_rgba(232,89,12,0.55)] hover:brightness-105">{loading ? "Signing in…" : "Continue to workspace"}<ArrowRight className="h-5 w-5" /></Button>
+        </form>
+        <p className="mt-8 text-center text-sm text-[#6B7264]">Trouble signing in? <a href="mailto:fleet-admin@example.com" className="font-medium text-[#E8590C] hover:underline">Contact your fleet admin</a></p>
+      </section>
     </main>
   );
 }
