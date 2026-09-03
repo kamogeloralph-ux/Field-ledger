@@ -13,15 +13,15 @@ vi.mock("@/contexts/FleetAuthContext", () => ({
   }),
 }));
 
-vi.mock("@/lib/supabase", () => ({ supabase: null }));
+vi.mock("@/lib/supabase", () => ({ supabase: null, isSupabaseConfigured: false }));
 
 describe("AdminGate", () => {
-  it("blocks drivers and supervisors from admin controls", () => {
+  it("blocks drivers and allows supervisors into the management workspace", () => {
     activeRole = "driver";
-    expect(renderToStaticMarkup(React.createElement(AdminGate, { children: React.createElement("div", null, "Admin controls") }))).toContain("Admin access required");
+    expect(renderToStaticMarkup(React.createElement(AdminGate, { children: React.createElement("div", null, "Admin controls") }))).toContain("Management access required");
 
     activeRole = "supervisor";
-    expect(renderToStaticMarkup(React.createElement(AdminGate, { children: React.createElement("div", null, "Admin controls") }))).toContain("Admin access required");
+    expect(renderToStaticMarkup(React.createElement(AdminGate, { children: React.createElement("div", null, "Admin controls") }))).not.toContain("Management access required");
   });
 
   it("allows an admin through to the actual management controls", () => {
