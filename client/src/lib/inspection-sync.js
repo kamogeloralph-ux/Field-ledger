@@ -33,19 +33,20 @@ async function submitOnline({ fullName, selectedFleet, openingKilometers, shift,
   const appItems = flattenChecklistItems(checklistSections);
   if (!dbItems || dbItems.length !== appItems.length) throw new Error("The app checklist and Supabase checklist template do not match.");
   const inspectionDate = new Date().toISOString().slice(0, 10);
-  const payload = { driver_id: null, driver_name: fullName.trim(), truck_id: truck.id, opening_kilometers: openingKilometers === "" || openingKilometers == null ? null : Number(openingKilometers), shift, checklist_template_id: template.id, inspection_date: inspectionDate, started_at: new Date().toISOString(), submitted_at: new Date().toISOString(), status: "completed", notes: notes?.trim() || null, signature_name: fullName.trim() };
-  const { data: inspection, error: inspectionError } = await driverSupabase.from("daily_inspections").insert(payload).select("id").single();
+  const inspectionId = crypto.randomUUID();
+  const payload = { id: inspectionId, driver_id: null, driver_name: fullName.trim(), truck_id: truck.id, opening_kilometers: openingKilometers === "" || openingKilometers == null ? null : Number(openingKilometers), shift, checklist_template_id: template.id, inspection_date: inspectionDate, started_at: new Date().toISOString(), submitted_at: new Date().toISOString(), status: "completed", notes: notes?.trim() || null, signature_name: fullName.trim() };
+  const { error: inspectionError } = await driverSupabase.from("daily_inspections").insert(payload);
   if (inspectionError) throw inspectionError;
-  const answers = appItems.map((item, index) => ({ inspection_id: inspection.id, checklist_item_id: dbItems[index].id, result: checks[item.id] ? "pass" : "fail" }));
+  const answers = appItems.map((item, index) => ({ inspection_id: inspectionId, checklist_item_id: dbItems[index].id, result: checks[item.id] ? "pass" : "fail" }));
   const { error: answerError } = await driverSupabase.from("inspection_answers").insert(answers);
   if (answerError) throw answerError;
   if (!(selfieFile instanceof File) || selfieFile.size === 0) throw new Error("The selfie image is missing. Please capture the selfie again.");
-  const selfieUpload = await uploadInspectionPhoto(selfieFile, inspection.id, "selfie", driverSupabase);
+  const selfieUpload = await uploadInspectionPhoto(selfieFile, inspectionId, "selfie", driverSupabase);
   if (selfieUpload.error) throw selfieUpload.error;
-  const { error: selfieError } = await driverSupabase.from("inspection_photos").insert({ inspection_id: inspection.id, photo_type: "selfie", storage_path: selfieUpload.data.storagePath, captured_at: new Date().toISOString() });
+  const { error: selfieError } = await driverSupabase.from("inspection_photos").insert({ inspection_id: inspectionId, photo_type: "selfie", storage_path: selfieUpload.data.storagePath, captured_at: new Date().toISOString() });
   if (selfieError) throw selfieError;
-  for (const [photoType, file] of Object.entries(photoFiles ?? {})) { const upload = await uploadInspectionPhoto(file, inspection.id, photoType, driverSupabase); if (upload.error) throw upload.error; const { error } = await driverSupabase.from("inspection_photos").insert({ inspection_id: inspection.id, photo_type: photoType, storage_path: upload.data.storagePath, captured_at: new Date().toISOString() }); if (error) throw error; }
-  return { queued: false, inspectionId: inspection.id };
+  for (const [photoType, file] of Object.entries(photoFiles ?? {})) { const upload = await uploadInspectionPhoto(file, inspectionId, photoType, driverSupabase); if (upload.error) throw upload.error; const { error } = await driverSupabase.from("inspection_photos").insert({ inspection_id: inspectionId, photo_type: photoType, storage_path: upload.data.storagePath, captured_at: new Date().toISOString() }); if (error) throw error; }
+  return { queued: false, inspectionId };
 }
 export async function submitInspection({ allowQueue = true, ...draft }) { const queuedDraft = buildInspectionDraft({ ...draft, queued: true }); const offline = !driverSupabase || (typeof navigator !== "undefined" && !navigator.onLine); if (offline) { if (!allowQueue) throw new Error("The connection is still offline."); await saveInspectionDraft(queuedDraft); return { queued: true }; } try { return await submitOnline(draft); } catch (error) { if (allowQueue && retryableError(error)) { await saveInspectionDraft(queuedDraft); return { queued: true }; } throw new Error(readableError(error)); } }
 export async function syncQueuedInspection({ checklistSections }) { if (!driverSupabase || (typeof navigator !== "undefined" && !navigator.onLine)) return null; const draft = await loadInspectionDraft(); if (!draft?.queued) return null; return submitInspection({ ...draft, checklistSections, allowQueue: false }); }
