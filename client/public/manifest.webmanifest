@@ -1,23 +1,23 @@
 {
-  "name": "Field Ledger Fleet Operations",
-  "short_name": "Field Ledger",
-  "description": "Daily truck inspections and fleet evidence.",
+  "name": "Rovana Fleet Operations",
+  "short_name": "Rovana",
+  "description": "Rovana keeps fleet operations, inspections, and evidence in one place.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f1ede2",
-  "theme_color": "#2f4638",
+  "background_color": "#FAF6EF",
+  "theme_color": "#14532D",
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "/manus-storage/field-ledger-mark_99bde0f5.png",
+      "src": "/rovana-mark.svg",
       "sizes": "192x192",
-      "type": "image/png",
+      "type": "image/svg+xml",
       "purpose": "any maskable"
     },
     {
-      "src": "/manus-storage/field-ledger-mark_99bde0f5.png",
+      "src": "/rovana-mark.svg",
       "sizes": "512x512",
-      "type": "image/png",
+      "type": "image/svg+xml",
       "purpose": "any maskable"
     }
   ]

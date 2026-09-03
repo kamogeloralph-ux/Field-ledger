@@ -58,15 +58,15 @@
 }
 
 html {
-  background: #eee9dc;
+  background: #FAF6EF;
 }
 
 body {
   margin: 0;
   min-width: 320px;
   background:
-    radial-gradient(circle at 15% 10%, rgb(255 255 255 / 0.8), transparent 28rem),
-    linear-gradient(115deg, #f4f0e5 0%, #ece7d8 54%, #e5dfce 100%);
+    radial-gradient(circle at 15% 10%, rgb(255 255 255 / 0.92), transparent 28rem),
+    linear-gradient(115deg, #FAF6EF 0%, #f4eee4 54%, #eee6d8 100%);
   color: var(--foreground);
   font-family: "DM Sans", ui-sans-serif, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -85,7 +85,7 @@ textarea {
 }
 
 .font-slab {
-  font-family: "Roboto Slab", Georgia, serif;
+  font-family: "Fraunces", Georgia, serif;
 }
 
 .field-shell {

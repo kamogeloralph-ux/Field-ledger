@@ -37,8 +37,8 @@ export default function Login({ onSuccess, mode }: { onSuccess: () => void; mode
           <div className="relative flex h-full flex-col justify-between gap-16">
             <div>
               <div className="mb-12 flex items-center gap-3">
-                <div className="grid h-11 w-11 place-items-center rounded-xl border border-[#f4a36f]/60 bg-[#f4a36f]/15"><TruckIcon className="h-5 w-5 text-[#f4a36f]" /></div>
-                <div><p className="font-slab text-xl font-bold tracking-[-0.04em]">Field Ledger</p><p className="text-[10px] uppercase tracking-[0.22em] text-[#b7c6b6]">Fleet operations</p></div>
+                <div className="grid h-11 w-11 place-items-center rounded-xl border border-[#f4a36f]/60 bg-[#f4a36f]/15"><img src="/rovana-mark.svg" alt="Rovana" className="h-5 w-5 rounded-md" /></div>
+                <div><p className="font-slab text-xl font-bold tracking-[-0.04em]">Rovana</p><p className="text-[10px] uppercase tracking-[0.22em] text-[#b7c6b6]">Fleet operations</p></div>
               </div>
               <p className="mb-4 text-[11px] font-bold uppercase tracking-[0.22em] text-[#f4a36f]">Secure yard access</p>
               <h1 className="max-w-lg font-slab text-4xl font-bold leading-[0.98] tracking-[-0.05em] sm:text-6xl">Start every shift with a clear record.</h1>
@@ -54,8 +54,8 @@ export default function Login({ onSuccess, mode }: { onSuccess: () => void; mode
           <div className="w-full max-w-md">
             <div className="mb-4 sm:mb-5">
               <div className="mb-3 flex items-center gap-2.5 sm:mb-4">
-                <div className="grid h-9 w-9 place-items-center rounded-lg bg-[#2f4638] shadow-[3px_3px_0_#e9682a]" aria-label="Field Ledger logo"><TruckIcon className="h-5 w-5 text-[#f4a36f]" /></div>
-                <div><div className="font-slab text-lg font-bold tracking-[-0.03em] text-[#263c30]">Field Ledger</div><div className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#7b8775]">Fleet operations</div></div>
+                <div className="grid h-9 w-9 place-items-center rounded-lg bg-[#2f4638] shadow-[3px_3px_0_#e9682a]" aria-label="Rovana logo"><img src="/rovana-mark.svg" alt="Rovana" className="h-5 w-5 rounded-md" /></div>
+                <div><div className="font-slab text-lg font-bold tracking-[-0.03em] text-[#263c30]">Rovana</div><div className="text-[9px] font-bold uppercase tracking-[0.18em] text-[#7b8775]">Fleet operations</div></div>
               </div>
               <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.2em] text-[#e9682a]">{mode === "admin" ? "Admin sign in" : "Driver sign in"}</p>
               <h2 className="font-slab text-2xl font-bold tracking-[-0.05em] text-[#2e4335] sm:text-4xl">{mode === "admin" ? "Manage the fleet" : "Start your inspection"}</h2>

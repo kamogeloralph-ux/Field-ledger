@@ -7,7 +7,7 @@ import { checklistSections } from "@/lib/checklist-config";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { buildInspectionDraft, clearInspectionDraft, loadInspectionDraft, saveInspectionDraft, submitInspection } from "@/lib/inspection-sync.js";
 
-const markUrl = "/manus-storage/field-ledger-mark_99bde0f5.png";
+const markUrl = "/rovana-mark.svg";
 const photoSlots = [
   { id: "front", label: "Front", helper: "Headlamps & plate" },
   { id: "rear", label: "Rear", helper: "Doors & lights" },
@@ -41,7 +41,7 @@ async function compressCapturedImage(file: File, maxDimension = 1280): Promise<F
 }
 
 function AppLogo() {
-  return <div className="flex items-center gap-3"><div className="grid h-10 w-10 place-items-center overflow-hidden rounded-xl bg-[#2f4638] shadow-[4px_4px_0_#e9682a]"><img src={markUrl} alt="Field Ledger" className="h-full w-full object-contain p-1.5" /></div><div><div className="font-slab text-lg font-bold text-[#263c30]">Field Ledger</div><div className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#7b8775]">Fleet inspection</div></div></div>;
+  return <div className="flex items-center gap-3"><div className="grid h-10 w-10 place-items-center overflow-hidden rounded-xl bg-[#2f4638] shadow-[4px_4px_0_#e9682a]"><img src={markUrl} alt="Rovana" className="h-full w-full object-contain p-1.5" /></div><div><div className="font-slab text-lg font-bold text-[#263c30]">Rovana</div><div className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#7b8775]">Fleet operations</div></div></div>;
 }
 
 function StepBar({ step, onStep }: { step: Step; onStep: (step: Step) => void }) {
