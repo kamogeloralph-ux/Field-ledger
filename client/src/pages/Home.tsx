@@ -7,7 +7,7 @@ import { checklistSections } from "@/lib/checklist-config";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { buildInspectionDraft, clearInspectionDraft, loadInspectionDraft, saveInspectionDraft, submitInspection } from "@/lib/inspection-sync.js";
 
-const markUrl = "/rovana-mark.svg";
+const markUrl = "/rovana-logo.png";
 const photoSlots = [
   { id: "front", label: "Front", helper: "Headlamps & plate" },
   { id: "rear", label: "Rear", helper: "Doors & lights" },
