@@ -7,7 +7,6 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { type FleetRole, useFleetAuth } from "@/contexts/FleetAuthContext";
 import Login from "@/pages/Login";
-import { trucks as demoTrucks, demoDrivers } from "@/lib/demo-data";
 
 type AdminTruck = { id: string; fleet_number: string; registration: string; truck_type: string | null; model: string | null; size: string | null; status: "ready" | "inspection_due" | "out_of_service" };
 type AdminDriver = { id: string; auth_user_id: string | null; employee_number: string | null; full_name: string; phone: string | null; role: FleetRole; active: boolean };
@@ -40,7 +39,7 @@ function AdminWorkspace() {
       supabase.from("daily_inspections").select("id, inspection_date, started_at, submitted_at, status, notes, driver:drivers(full_name, employee_number), truck:trucks(fleet_number, registration, model), answers:inspection_answers(result, checklist_item:checklist_items(label)), photos:inspection_photos(id, photo_type, storage_path, captured_at)").eq("inspection_date", reportDate).order("created_at", { ascending: false }),
     ]);
     if (truckError || driverError || reportError) toastError((truckError || driverError || reportError)?.message || "Unable to load admin data.");
-    setTrucks(((truckData ?? []).length ? truckData : demoTrucks.map((truck, index) => ({ id: `demo-truck-${index}`, fleet_number: truck.fleetNumber, registration: truck.registration, truck_type: truck.type, model: null, size: null, status: truck.status === "Ready" ? "ready" : truck.status === "Inspection due" ? "inspection_due" : "out_of_service" }))) as AdminTruck[]); setDrivers(((driverData ?? []).length ? driverData : demoDrivers.map((driver, index) => ({ id: `demo-driver-${index}`, auth_user_id: null, employee_number: null, full_name: driver.name, phone: null, role: "driver" as FleetRole, active: true }))) as AdminDriver[]); const rows = (reportData ?? []) as unknown as ReportRow[]; setReports(rows);
+    setTrucks((truckData ?? []) as AdminTruck[]); setDrivers((driverData ?? []) as AdminDriver[]); const rows = (reportData ?? []) as unknown as ReportRow[]; setReports(rows);
     const photoRows = rows.flatMap((row) => (row.photos ?? []).map((photo) => ({ ...photo, truck: row.truck?.fleet_number || "Unknown truck", driver: row.driver?.full_name || "Unknown driver" })));
     const signed = await Promise.all(photoRows.map(async (photo) => { const result = await client.storage.from("inspection-photos").createSignedUrl(photo.storage_path, 3600); return { ...photo, url: result.data?.signedUrl }; })); setGallery(signed); setLoading(false);
   };
