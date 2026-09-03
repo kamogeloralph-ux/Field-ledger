@@ -10,8 +10,22 @@ import Login from "@/pages/Login";
 
 type AdminTruck = { id: string; fleet_number: string; registration: string; truck_type: string | null; model: string | null; size: string | null; status: "ready" | "inspection_due" | "out_of_service" };
 type AdminDriver = { id: string; auth_user_id: string | null; employee_number: string | null; full_name: string; phone: string | null; role: FleetRole; active: boolean };
-type ReportRow = { id: string; inspection_date: string; started_at: string | null; submitted_at: string | null; status: string; notes: string | null; driver_name: string | null; opening_kilometers: number | null; shift: "morning" | "day" | "night" | null; driver: { full_name: string; employee_number: string | null } | null; truck: { fleet_number: string; registration: string; model: string | null } | null; answers: { result: string; checklist_item: { prompt: string } | null }[]; photos: { id: string; photo_type: string; storage_path: string; captured_at: string }[] };
-type GalleryPhoto = { id: string; photo_type: string; storage_path: string; captured_at: string; truck: string; driver: string; url?: string };
+type ReportRow = { id: string; inspection_date: string; started_at: string | null; submitted_at: string | null; status: string; notes: string | null; driver_name: string | null; opening_kilometers: number | null; shift: "morning" | "day" | "night" | null; driver: { full_name: string; employee_number: string | null } | null; truck: { fleet_number: string; registration: string; model: string | null } | null; answers: { result: string; checklist_item: { prompt: string; section_title: string | null; sort_order: number | null } | null }[]; photos: { id: string; photo_type: string; storage_path: string; captured_at: string; url?: string }[] };
+type SelectedPhoto = { url?: string; photo_type: string; truck: string; driver: string; captured_at: string };
+
+// Canonical evidence set: every completed inspection should carry exactly these seven images.
+const PHOTO_ORDER = ["selfie", "front", "rear", "left", "right", "cab", "dashboard"] as const;
+const PHOTO_LABELS: Record<string, string> = { selfie: "Driver selfie", front: "Front", rear: "Rear", left: "Left side", right: "Right side", cab: "Cab interior", dashboard: "Dashboard" };
+function sortedPhotos(photos: ReportRow["photos"]) { return [...photos].sort((a, b) => PHOTO_ORDER.indexOf(a.photo_type as typeof PHOTO_ORDER[number]) - PHOTO_ORDER.indexOf(b.photo_type as typeof PHOTO_ORDER[number])); }
+function shiftLabel(shift: ReportRow["shift"]) { if (shift === "morning") return "Morning shift"; if (shift === "day") return "Day shift"; if (shift === "night") return "Night shift"; return "No shift recorded"; }
+function sortedAnswers(answers: ReportRow["answers"]) { return [...answers].sort((a, b) => (a.checklist_item?.sort_order ?? 0) - (b.checklist_item?.sort_order ?? 0)); }
+async function urlToDataUrl(url: string): Promise<string | null> {
+  try {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    return await new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result as string); reader.onerror = () => reject(reader.error); reader.readAsDataURL(blob); });
+  } catch { return null; }
+}
 
 export function AdminGate({ children }: { children: React.ReactNode }) {
   const { loading, profile, signOut } = useFleetAuth();
@@ -27,21 +41,26 @@ function toastError(message: string) { window.dispatchEvent(new CustomEvent("fie
 
 function AdminWorkspace() {
   const { profile, signOut } = useFleetAuth();
-  const [trucks, setTrucks] = useState<AdminTruck[]>([]); const [drivers, setDrivers] = useState<AdminDriver[]>([]); const [reports, setReports] = useState<ReportRow[]>([]); const [gallery, setGallery] = useState<GalleryPhoto[]>([]); const [loading, setLoading] = useState(true);
+  const [trucks, setTrucks] = useState<AdminTruck[]>([]); const [drivers, setDrivers] = useState<AdminDriver[]>([]); const [reports, setReports] = useState<ReportRow[]>([]); const [loading, setLoading] = useState(true); const [generatingPdf, setGeneratingPdf] = useState(false);
   const [truckForm, setTruckForm] = useState({ fleet_number: "", registration: "", truck_type: "", model: "", size: "", status: "ready" as AdminTruck["status"] }); const [driverForm, setDriverForm] = useState({ auth_user_id: "", employee_number: "", full_name: "", phone: "", role: "driver" as FleetRole });
-  const [editingTruckId, setEditingTruckId] = useState<string | null>(null); const [fleetFilter, setFleetFilter] = useState(""); const [openFleet, setOpenFleet] = useState(false); const [openDrivers, setOpenDrivers] = useState(false); const [openCard, setOpenCard] = useState<"driver" | "truck" | null>(null); const [reportDate, setReportDate] = useState(() => new Date().toISOString().slice(0, 10)); const [selectedPhoto, setSelectedPhoto] = useState<GalleryPhoto | null>(null);
+  const [editingTruckId, setEditingTruckId] = useState<string | null>(null); const [fleetFilter, setFleetFilter] = useState(""); const [openFleet, setOpenFleet] = useState(false); const [openDrivers, setOpenDrivers] = useState(false); const [openCard, setOpenCard] = useState<"driver" | "truck" | null>(null); const [reportDate, setReportDate] = useState(() => new Date().toISOString().slice(0, 10)); const [selectedPhoto, setSelectedPhoto] = useState<SelectedPhoto | null>(null);
 
   const load = async () => {
     if (!supabase) { setLoading(false); return; } const client = supabase; setLoading(true);
     const [{ data: truckData, error: truckError }, { data: driverData, error: driverError }, { data: reportData, error: reportError }] = await Promise.all([
       supabase.from("trucks").select("id, fleet_number, registration, truck_type, model, size, status").order("fleet_number"),
       supabase.from("drivers").select("id, auth_user_id, employee_number, full_name, phone, role, active").order("full_name"),
-      supabase.from("daily_inspections").select("id, inspection_date, started_at, submitted_at, status, notes, driver_name, opening_kilometers, shift, driver:drivers(full_name, employee_number), truck:trucks(fleet_number, registration, model), answers:inspection_answers(result, checklist_item:checklist_items(prompt)), photos:inspection_photos(id, photo_type, storage_path, captured_at)").eq("inspection_date", reportDate).order("created_at", { ascending: false }),
+      supabase.from("daily_inspections").select("id, inspection_date, started_at, submitted_at, status, notes, driver_name, opening_kilometers, shift, driver:drivers(full_name, employee_number), truck:trucks(fleet_number, registration, model), answers:inspection_answers(result, checklist_item:checklist_items(prompt, section_title, sort_order)), photos:inspection_photos(id, photo_type, storage_path, captured_at)").eq("inspection_date", reportDate).order("created_at", { ascending: false }),
     ]);
     if (truckError || driverError || reportError) toastError((truckError || driverError || reportError)?.message || "Unable to load admin data.");
-    setTrucks((truckData ?? []) as AdminTruck[]); setDrivers((driverData ?? []) as AdminDriver[]); const rows = (reportData ?? []) as unknown as ReportRow[]; setReports(rows);
-    const photoRows = rows.flatMap((row) => (row.photos ?? []).map((photo) => ({ ...photo, truck: row.truck?.fleet_number || "Unknown truck", driver: row.driver_name || row.driver?.full_name || "Unknown driver" })));
-    const signed = await Promise.all(photoRows.map(async (photo) => { const result = await client.storage.from("inspection-photos").createSignedUrl(photo.storage_path, 3600); return { ...photo, url: result.data?.signedUrl }; })); setGallery(signed); setLoading(false);
+    setTrucks((truckData ?? []) as AdminTruck[]); setDrivers((driverData ?? []) as AdminDriver[]);
+    const rows = (reportData ?? []) as unknown as ReportRow[];
+    // Sign each inspection's own photos in place so every fleet's evidence set (selfie + six angles) stays grouped together.
+    const withSignedPhotos = await Promise.all(rows.map(async (row) => {
+      const photos = await Promise.all((row.photos ?? []).map(async (photo) => { const result = await client.storage.from("inspection-photos").createSignedUrl(photo.storage_path, 3600); return { ...photo, url: result.data?.signedUrl }; }));
+      return { ...row, photos };
+    }));
+    setReports(withSignedPhotos); setLoading(false);
   };
   useEffect(() => { void load(); }, [reportDate]);
 
@@ -51,8 +70,146 @@ function AdminWorkspace() {
   const deleteDriver = async (driver: AdminDriver) => { if (!supabase || !window.confirm(`Delete ${driver.full_name}'s fleet profile?`)) return; const { error } = await supabase.from("drivers").delete().eq("id", driver.id); if (error) return toastError(error.message); toastSuccess("Driver profile deleted."); await load(); };
   const exportFleet = () => { const rows = [["Fleet number", "Registration", "Truck type", "Model", "Size", "Status"], ...trucks.map((t) => [t.fleet_number, t.registration, t.truck_type ?? "", t.model ?? "", t.size ?? "", t.status])]; const csv = rows.map((row) => row.map((v) => `"${String(v).replaceAll('"', '""')}"`).join(",")).join("\n"); const link = document.createElement("a"); link.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" })); link.download = `rovana-fleet-${reportDate}.csv`; link.click(); };
   const filteredReports = reports.filter((row) => !fleetFilter || row.truck?.fleet_number?.toLowerCase().includes(fleetFilter.toLowerCase()));
-  const exportInspections = () => { const rows = [["Fleet number", "Registration", "Inspection date", "Shift", "Opening kilometers", "Name", "Status", "Answers", "Evidence photos"], ...filteredReports.map((row) => [row.truck?.fleet_number || "", row.truck?.registration || "", row.inspection_date, row.shift || "", row.opening_kilometers ?? "", row.driver_name || row.driver?.full_name || "", row.status, `${row.answers?.filter((a) => a.result === "pass").length || 0} passed / ${row.answers?.filter((a) => a.result === "fail").length || 0} failed`, `${row.photos?.length || 0}/7`])]; const csv = rows.map((row) => row.map((value) => `"${String(value).replaceAll('"', '""')}"`).join(",")).join("\\n"); const link = document.createElement("a"); link.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" })); link.download = `rovana-inspections-${reportDate}${fleetFilter ? `-${fleetFilter}` : ""}.csv`; link.click(); toastSuccess("Inspection report CSV downloaded."); };
-  const shareReport = async () => { const pdf = new jsPDF(); pdf.setFontSize(18); pdf.text("Rovana — Fleet Inspection Report", 16, 20); pdf.setFontSize(10); pdf.text(`Report date: ${reportDate}`, 16, 28); pdf.text(`Inspections: ${reports.length} | Evidence photos: ${gallery.length}`, 16, 36); let y = 48; filteredReports.forEach((row) => { pdf.text(`${row.truck?.fleet_number || "Unknown truck"} · ${row.driver_name || row.driver?.full_name || "Unknown driver"}`, 16, y); pdf.text(`${row.shift || "No shift"} · ${row.opening_kilometers ?? "—"} km · ${row.status.replaceAll("_", " ")} · ${row.photos?.length || 0}/7 photos`, 16, y + 6); y += 14; if (y > 275) { pdf.addPage(); y = 20; } }); const blob = pdf.output("blob"); const file = new File([blob], `rovana-report-${reportDate}.pdf`, { type: "application/pdf" }); if (navigator.share && navigator.canShare?.({ files: [file] })) await navigator.share({ title: "Rovana inspection report", text: `Fleet inspection report for ${reportDate}`, files: [file] }); else { const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = file.name; link.click(); toastSuccess("Report PDF downloaded."); } };
+  const exportInspections = () => {
+    const header = ["#", "Fleet number", "Registration", "Inspection date", "Shift", "Opening kilometers", "Driver name", "Status", "Checklist results", "Notes", "Evidence photos"];
+    const rows = [header, ...filteredReports.map((row, index) => [
+      String(index + 1),
+      row.truck?.fleet_number || "",
+      row.truck?.registration || "",
+      row.inspection_date,
+      shiftLabel(row.shift),
+      row.opening_kilometers != null ? `Opening Kilometers: ${row.opening_kilometers}` : "Opening Kilometers: —",
+      row.driver_name || row.driver?.full_name || "",
+      row.status.replaceAll("_", " "),
+      sortedAnswers(row.answers ?? []).map((a) => `${a.checklist_item?.prompt ?? "Checklist item"}: ${a.result === "pass" ? "Pass" : "Fail"}`).join("; "),
+      row.notes || "",
+      `${row.photos?.length || 0}/7`,
+    ])];
+    const csv = rows.map((row) => row.map((value) => `"${String(value).replaceAll('"', '""')}"`).join(",")).join("\n");
+    const link = document.createElement("a"); link.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" })); link.download = `rovana-inspections-${reportDate}${fleetFilter ? `-${fleetFilter}` : ""}.csv`; link.click(); toastSuccess("Inspection report CSV downloaded.");
+  };
+  const shareReport = async () => {
+    if (filteredReports.length === 0) return toastError("No inspections to include in this report.");
+    setGeneratingPdf(true);
+    try {
+      const pdf = new jsPDF({ unit: "mm", format: "a4" });
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const marginX = 16;
+      const bottomLimit = pageHeight - 16;
+      let y = 0;
+
+      const ensureSpace = (needed: number) => { if (y + needed > bottomLimit) { pdf.addPage(); y = 20; } };
+
+      // Cover header.
+      pdf.setFont("helvetica", "bold"); pdf.setFontSize(20); pdf.text("Rovana — Fleet Inspection Report", marginX, 22);
+      pdf.setFont("helvetica", "normal"); pdf.setFontSize(10); pdf.setTextColor(90, 100, 90);
+      pdf.text(`Report date: ${reportDate}`, marginX, 30);
+      pdf.text(`Fleets inspected: ${filteredReports.length}`, marginX, 36);
+      pdf.text(`Generated: ${new Date().toLocaleString()}`, marginX, 42);
+      pdf.setDrawColor(210, 205, 190); pdf.line(marginX, 47, pageWidth - marginX, 47);
+      pdf.setTextColor(20, 30, 25);
+      y = 58;
+
+      for (let index = 0; index < filteredReports.length; index += 1) {
+        const row = filteredReports[index];
+        ensureSpace(20);
+
+        // Fleet section header, numbered 1..N for this report.
+        pdf.setFont("helvetica", "bold"); pdf.setFontSize(14);
+        pdf.text(`${index + 1}. Fleet ${row.truck?.fleet_number || "Unknown"}`, marginX, y);
+        pdf.setFont("helvetica", "normal"); pdf.setFontSize(9); pdf.setTextColor(110, 120, 110);
+        pdf.text(row.truck?.registration || "No registration on file", pageWidth - marginX, y, { align: "right" });
+        pdf.setTextColor(20, 30, 25);
+        y += 7;
+
+        // Meta grid: driver, shift, opening kilometers, submitted time, status.
+        const driverName = row.driver_name || row.driver?.full_name || "Unknown driver";
+        const metaLines = [
+          `Driver: ${driverName}`,
+          `Shift: ${shiftLabel(row.shift)}`,
+          `Opening Kilometers: ${row.opening_kilometers != null ? row.opening_kilometers : "—"}`,
+          `Submitted: ${row.submitted_at ? new Date(row.submitted_at).toLocaleString() : "Not submitted"}`,
+          `Status: ${row.status.replaceAll("_", " ")}`,
+        ];
+        pdf.setFontSize(10);
+        metaLines.forEach((line) => { ensureSpace(6); pdf.text(line, marginX, y); y += 5.5; });
+        y += 2;
+
+        // Full checklist, grouped by section, in template order.
+        const answers = sortedAnswers(row.answers ?? []);
+        ensureSpace(8);
+        pdf.setFont("helvetica", "bold"); pdf.setFontSize(11); pdf.text("Checklist", marginX, y); y += 6;
+        pdf.setFont("helvetica", "normal"); pdf.setFontSize(9.5);
+        let currentSection = "";
+        answers.forEach((answer) => {
+          const section = answer.checklist_item?.section_title || "";
+          if (section && section !== currentSection) {
+            currentSection = section;
+            ensureSpace(6);
+            pdf.setFont("helvetica", "bold"); pdf.setTextColor(90, 100, 90);
+            pdf.text(section, marginX, y); y += 5;
+            pdf.setFont("helvetica", "normal"); pdf.setTextColor(20, 30, 25);
+          }
+          ensureSpace(5.5);
+          const pass = answer.result === "pass";
+          pdf.setTextColor(20, 30, 25);
+          pdf.text(`•  ${answer.checklist_item?.prompt || "Checklist item"}`, marginX + 3, y);
+          pdf.setFont("helvetica", "bold");
+          pdf.setTextColor(pass ? 40 : 170, pass ? 120 : 60, pass ? 70 : 50);
+          pdf.text(pass ? "PASS" : "FAIL", pageWidth - marginX, y, { align: "right" });
+          pdf.setFont("helvetica", "normal"); pdf.setTextColor(20, 30, 25);
+          y += 5.5;
+        });
+        y += 2;
+
+        if (row.notes) {
+          ensureSpace(10);
+          pdf.setFont("helvetica", "bold"); pdf.setFontSize(10); pdf.text("Notes / deviations", marginX, y); y += 5;
+          pdf.setFont("helvetica", "normal"); pdf.setFontSize(9.5);
+          const noteLines = pdf.splitTextToSize(row.notes, pageWidth - marginX * 2);
+          noteLines.forEach((line: string) => { ensureSpace(5); pdf.text(line, marginX, y); y += 5; });
+          y += 2;
+        }
+
+        // Evidence: all seven photos for this fleet, grouped together (selfie + six angles).
+        const photos = sortedPhotos(row.photos ?? []);
+        ensureSpace(8);
+        pdf.setFont("helvetica", "bold"); pdf.setFontSize(11); pdf.text(`Evidence photos (${photos.length}/7)`, marginX, y); y += 4;
+
+        const cols = 4; const cellW = (pageWidth - marginX * 2) / cols; const imgW = cellW - 4; const imgH = imgW * 0.75;
+        const rowsOfPhotos: typeof photos[] = []; for (let i = 0; i < photos.length; i += cols) rowsOfPhotos.push(photos.slice(i, i + cols));
+
+        for (const photoRow of rowsOfPhotos) {
+          ensureSpace(imgH + 8);
+          const rowTop = y;
+          for (let col = 0; col < photoRow.length; col += 1) {
+            const photo = photoRow[col];
+            const cellX = marginX + col * cellW;
+            const dataUrl = photo.url ? await urlToDataUrl(photo.url) : null;
+            if (dataUrl) { try { pdf.addImage(dataUrl, "JPEG", cellX, rowTop, imgW, imgH, undefined, "FAST"); } catch { pdf.setDrawColor(200); pdf.rect(cellX, rowTop, imgW, imgH); } }
+            else { pdf.setDrawColor(200); pdf.rect(cellX, rowTop, imgW, imgH); }
+            pdf.setFontSize(7.5); pdf.setTextColor(90, 100, 90);
+            pdf.text(PHOTO_LABELS[photo.photo_type] || photo.photo_type, cellX + imgW / 2, rowTop + imgH + 4, { align: "center" });
+            pdf.setTextColor(20, 30, 25);
+          }
+          y = rowTop + imgH + 8;
+        }
+
+        y += 4;
+        if (index < filteredReports.length - 1) { ensureSpace(6); pdf.setDrawColor(225, 220, 205); pdf.line(marginX, y, pageWidth - marginX, y); y += 8; }
+      }
+
+      const blob = pdf.output("blob");
+      const file = new File([blob], `rovana-report-${reportDate}.pdf`, { type: "application/pdf" });
+      if (navigator.share && navigator.canShare?.({ files: [file] })) await navigator.share({ title: "Rovana inspection report", text: `Fleet inspection report for ${reportDate}`, files: [file] });
+      else { const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = file.name; link.click(); toastSuccess("Report PDF downloaded."); }
+    } catch (error) {
+      toastError(error instanceof Error ? error.message : "Unable to generate the report PDF.");
+    } finally {
+      setGeneratingPdf(false);
+    }
+  };
   const startEdit = (truck: AdminTruck) => { setEditingTruckId(truck.id); setTruckForm({ fleet_number: truck.fleet_number, registration: truck.registration, truck_type: truck.truck_type ?? "", model: truck.model ?? "", size: truck.size ?? "", status: truck.status }); setOpenCard("truck"); };
 
   return <main className="min-h-screen bg-[#ede9dd] text-[#2e4335]"><header className="flex flex-wrap items-center justify-between gap-4 border-b border-[#d8d3c5] bg-[#f7f3e9] px-4 py-4 sm:px-8"><div className="flex items-center gap-3"><div className="grid h-10 w-10 place-items-center rounded-xl bg-[#2f4638] text-[#f4a36f]"><img src={`${import.meta.env.BASE_URL}rovana-logo.png`} alt="Rovana" className="h-5 w-5 rounded-md" /></div><div><p className="font-slab text-xl font-bold">Admin control</p><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#7b8775]">Rovana · {profile?.full_name}</p></div></div><div className="flex items-center gap-1.5 sm:gap-2"><Button variant="outline" onClick={exportFleet} className="h-8 rounded-lg bg-[#fbf8ef] px-2.5 text-[10px] font-bold sm:h-9 sm:px-3 sm:text-xs"><Download className="mr-1 h-3 w-3 sm:mr-2 sm:h-3.5 sm:w-3.5" />Export</Button><Button variant="outline" onClick={() => void load()} className="h-8 rounded-lg bg-[#fbf8ef] px-2.5 text-[10px] font-bold sm:h-9 sm:px-3 sm:text-xs"><RefreshCw className="mr-1 h-3 w-3 sm:mr-2 sm:h-3.5 sm:w-3.5" />Refresh</Button><Button variant="outline" onClick={() => void signOut()} className="h-8 rounded-lg bg-[#fbf8ef] px-2.5 text-[10px] font-bold sm:h-9 sm:px-3 sm:text-xs"><X className="mr-1 h-3 w-3 sm:mr-2 sm:h-3.5 sm:w-3.5" />Sign out</Button></div></header><div className="mx-auto max-w-7xl space-y-6 p-4 pb-16 sm:p-8"><div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-[#7c887b]"><button type="button" onClick={() => { void signOut().finally(() => window.location.replace(import.meta.env.BASE_URL)); }} className="inline-flex items-center gap-2 hover:text-[#e9682a]"><ArrowLeft className="h-3.5 w-3.5" />Return to workspace</button><span>/</span><span className="text-[#e9682a]">Admin only</span></div>
@@ -60,8 +217,8 @@ function AdminWorkspace() {
 {openCard === "driver" && <form onSubmit={saveDriver} className="paper-panel rounded-2xl border border-[#d8d3c5] p-5"><div className="mb-5 flex items-center justify-between"><div><p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#6a7769]">Roster control</p><h2 className="font-slab text-2xl font-bold">Add driver profile</h2></div><Button type="button" variant="ghost" onClick={() => setOpenCard(null)}><X className="h-4 w-4" /></Button></div><div className="grid gap-4 sm:grid-cols-2"><Field label="Auth user UID"><Input value={driverForm.auth_user_id} onChange={(e) => setDriverForm({ ...driverForm, auth_user_id: e.target.value })} /></Field><Field label="Full name"><Input required value={driverForm.full_name} onChange={(e) => setDriverForm({ ...driverForm, full_name: e.target.value })} /></Field><Field label="Employee number"><Input value={driverForm.employee_number} onChange={(e) => setDriverForm({ ...driverForm, employee_number: e.target.value })} /></Field><Field label="Phone"><Input value={driverForm.phone} onChange={(e) => setDriverForm({ ...driverForm, phone: e.target.value })} /></Field><Field label="Role"><select value={driverForm.role} onChange={(e) => setDriverForm({ ...driverForm, role: e.target.value as FleetRole })} className="h-10 w-full rounded-xl border border-[#d4cfc1] bg-[#fffdf6] px-3 text-sm"><option value="driver">Driver</option><option value="admin">Admin</option></select></Field></div><Button type="submit" className="mt-5 h-11 w-full rounded-xl bg-[#e9682a] text-sm font-bold text-white"><UserPlus className="mr-2 h-4 w-4" />Add profile</Button></form>}
 {openCard === "truck" && <form onSubmit={saveTruck} className={cn("paper-panel w-full rounded-2xl border border-[#d8d3c5] p-5", editingTruckId && "fixed inset-0 z-50 mx-auto flex max-w-2xl items-start justify-center overflow-y-auto rounded-none border-0 bg-[#1f3529]/45 p-4 sm:items-center sm:p-8") }><div className={cn("w-full", editingTruckId && "max-w-xl rounded-2xl border border-[#d8d3c5] bg-[#fbf8ef] p-5 shadow-2xl sm:p-6")}><div className="mb-5 flex items-center justify-between"><div><p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#6a7769]">Fleet control</p><h2 className="font-slab text-2xl font-bold">{editingTruckId ? "Edit truck" : "Add truck"}</h2></div><Button type="button" variant="ghost" onClick={() => { setOpenCard(null); setEditingTruckId(null); }}><X className="h-4 w-4" /></Button></div><div className="grid gap-4 sm:grid-cols-2"><Field label="Fleet number"><Input required value={truckForm.fleet_number} onChange={(e) => setTruckForm({ ...truckForm, fleet_number: e.target.value })} /></Field><Field label="Registration"><Input required value={truckForm.registration} onChange={(e) => setTruckForm({ ...truckForm, registration: e.target.value })} /></Field><Field label="Truck type"><Input value={truckForm.truck_type} onChange={(e) => setTruckForm({ ...truckForm, truck_type: e.target.value })} /></Field><Field label="Model"><Input value={truckForm.model} onChange={(e) => setTruckForm({ ...truckForm, model: e.target.value })} /></Field><Field label="Size"><Input value={truckForm.size} onChange={(e) => setTruckForm({ ...truckForm, size: e.target.value })} /></Field><Field label="Status"><select value={truckForm.status} onChange={(e) => setTruckForm({ ...truckForm, status: e.target.value as AdminTruck["status"] })} className="h-10 w-full rounded-xl border border-[#d4cfc1] bg-[#fffdf6] px-3 text-sm"><option value="ready">Ready</option><option value="inspection_due">Inspection due</option><option value="out_of_service">Out of service</option></select></Field></div><Button type="submit" className="mt-5 h-11 w-full rounded-xl bg-[#2f4638] text-sm font-bold text-white"><Save className="mr-2 h-4 w-4" />{editingTruckId ? "Save truck" : "Add truck"}</Button></div></form>}
 
-<section className="paper-panel overflow-hidden rounded-2xl border border-[#d8d3c5]"><div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#dfd9ca] px-5 py-5"><div><p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#6a7769]">Manager report</p><h2 className="font-slab text-2xl font-bold">Complete inspection report</h2><p className="mt-1 text-xs text-[#718070]">Checklist outcomes, driver, truck, timestamps, notes, and evidence completeness.</p></div><div className="flex gap-2"><Input type="date" value={reportDate} onChange={(e) => setReportDate(e.target.value)} className="h-9 w-[145px]" /><Input value={fleetFilter} onChange={(e) => setFleetFilter(e.target.value)} placeholder="Filter fleet" className="h-9 w-[120px]" /><Button variant="outline" onClick={exportInspections} className="h-9 bg-[#fbf8ef] text-xs font-bold"><Download className="mr-2 h-3.5 w-3.5" />CSV</Button><Button onClick={() => void shareReport()} className="h-9 bg-[#e9682a] text-xs font-bold text-white"><Share2 className="mr-2 h-3.5 w-3.5" />Share PDF</Button></div></div><div className="divide-y divide-[#e5dfd3]">{loading ? <div className="p-6 text-sm">Loading report…</div> : filteredReports.length === 0 ? <div className="p-6 text-sm text-[#7c887b]">No inspections recorded for {reportDate}{fleetFilter ? ` matching ${fleetFilter}` : ""}.</div> : filteredReports.map((row) => <div key={row.id} className="px-5 py-4"><div className="flex flex-wrap items-center gap-3"><span className="font-mono text-sm font-bold">{row.truck?.fleet_number || "Unknown truck"}</span><span className="text-sm font-semibold">{row.driver_name || row.driver?.full_name || "Unknown driver"}</span><span className="rounded-full bg-[#fff0dc] px-2 py-1 text-[10px] font-bold uppercase text-[#a54d1f]">{row.shift || "No shift"}</span><span className="text-xs font-semibold text-[#718070]">{row.opening_kilometers ?? "—"} km</span><span className="text-xs text-[#718070]">{row.submitted_at ? new Date(row.submitted_at).toLocaleString() : "Not submitted"}</span><span className="ml-auto rounded-full bg-[#e8eee5] px-2.5 py-1 text-[10px] font-bold uppercase">{row.status.replaceAll("_", " ")}</span></div><div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-[#718070]"><span>{row.answers?.filter((a) => a.result === "pass").length || 0} passed · {row.answers?.filter((a) => a.result === "fail").length || 0} failed</span><span className={cn(row.photos?.length === 6 ? "text-[#2f8b5e]" : "text-[#b65323]", "font-bold")}>{row.photos?.length || 0}/7 evidence images</span>{row.notes && <span className="truncate">Note: {row.notes}</span>}</div></div>)}</div></section>
-<section className="paper-panel overflow-hidden rounded-2xl border border-[#d8d3c5]"><div className="border-b border-[#dfd9ca] px-5 py-5"><p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#6a7769]">Evidence library</p><h2 className="font-slab text-2xl font-bold">Truck inspection photos</h2></div><div className="grid grid-cols-2 gap-3 p-5 sm:grid-cols-3 lg:grid-cols-6">{gallery.length === 0 ? <p className="col-span-full text-sm text-[#7c887b]">No captured evidence photos for this date.</p> : gallery.map((photo) => <button key={photo.id} type="button" onClick={() => setSelectedPhoto(photo)} className="group overflow-hidden rounded-xl border border-[#d8d3c5] bg-[#f5f1e7] text-left"><div className="aspect-square bg-[#e5e1d5]">{photo.url ? <img src={photo.url} alt={`${photo.truck} ${photo.photo_type}`} className="h-full w-full object-cover transition group-hover:scale-105" /> : <div className="grid h-full place-items-center"><Camera className="h-5 w-5 text-[#889286]" /></div>}</div><div className="p-2"><div className="truncate text-[10px] font-bold">{photo.truck}</div><div className="truncate text-[10px] text-[#718070]">{photo.photo_type} · {photo.driver}</div></div></button>)}</div></section><section className="paper-panel overflow-hidden rounded-2xl border border-[#d8d3c5]"><button type="button" onClick={() => setOpenFleet(current => !current)} className="flex w-full items-center justify-between border-b border-[#dfd9ca] px-5 py-5 text-left"><div><p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#6a7769]">Master fleet</p><h2 className="font-slab text-2xl font-bold">Fleet records</h2></div><span className="rounded-full bg-[#e8eee5] px-3 py-1 text-xs font-bold">{trucks.length} trucks</span><span className="text-xs font-bold uppercase tracking-[0.12em] text-[#e9682a]">{openFleet ? "Close" : "Open"}</span></button>{openFleet && <div className="divide-y divide-[#e5dfd3]">{loading ? <div className="p-6 text-sm">Loading fleet records…</div> : trucks.map((truck) => <div key={truck.id} role="button" tabIndex={0} onClick={() => startEdit(truck)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") startEdit(truck); }} className="flex cursor-pointer flex-wrap items-center gap-3 px-5 py-4 hover:bg-[#f5f1e7]"><div className="grid h-9 w-9 place-items-center rounded-lg bg-[#e8eee5]"><TruckIcon className="h-4 w-4" /></div><div className="min-w-0 flex-1"><div className="font-mono text-sm font-bold">{truck.fleet_number}</div><div className="font-mono text-xs font-bold text-[#e9682a]">{truck.registration}</div></div><span className="text-xs font-semibold">{truck.status.replaceAll("_", " ")}</span><Button variant="outline" onClick={(e) => { e.stopPropagation(); startEdit(truck); }} className="h-8 text-xs font-bold">Edit</Button><Button variant="outline" onClick={(e) => { e.stopPropagation(); void deleteTruck(truck); }} className="h-8 text-xs text-[#a44b2d]"><Trash2 className="h-3.5 w-3.5" /></Button></div>)}</div>}</section>
+<section className="paper-panel overflow-hidden rounded-2xl border border-[#d8d3c5]"><div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#dfd9ca] px-5 py-5"><div><p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#6a7769]">Manager report</p><h2 className="font-slab text-2xl font-bold">Complete inspection report</h2><p className="mt-1 text-xs text-[#718070]">Full checklist, driver, shift, opening kilometers, notes, and all seven evidence photos per fleet.</p></div><div className="flex gap-2"><Input type="date" value={reportDate} onChange={(e) => setReportDate(e.target.value)} className="h-9 w-[145px]" /><Input value={fleetFilter} onChange={(e) => setFleetFilter(e.target.value)} placeholder="Filter fleet" className="h-9 w-[120px]" /><Button variant="outline" onClick={exportInspections} className="h-9 bg-[#fbf8ef] text-xs font-bold"><Download className="mr-2 h-3.5 w-3.5" />CSV</Button><Button onClick={() => void shareReport()} disabled={generatingPdf} className="h-9 bg-[#e9682a] text-xs font-bold text-white disabled:opacity-60"><Share2 className="mr-2 h-3.5 w-3.5" />{generatingPdf ? "Building report…" : "Share PDF"}</Button></div></div><div className="divide-y divide-[#e5dfd3]">{loading ? <div className="p-6 text-sm">Loading report…</div> : filteredReports.length === 0 ? <div className="p-6 text-sm text-[#7c887b]">No inspections recorded for {reportDate}{fleetFilter ? ` matching ${fleetFilter}` : ""}.</div> : filteredReports.map((row, index) => { const driverName = row.driver_name || row.driver?.full_name || "Unknown driver"; const photos = sortedPhotos(row.photos ?? []); const answers = sortedAnswers(row.answers ?? []); let lastSection = ""; return <div key={row.id} className="px-5 py-6"><div className="flex flex-wrap items-start justify-between gap-3"><div className="flex items-center gap-3"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#2f4638] text-sm font-bold text-[#f4a36f]">{index + 1}</span><div><div className="flex flex-wrap items-center gap-2"><span className="font-mono text-base font-bold">Fleet {row.truck?.fleet_number || "Unknown"}</span><span className="font-mono text-xs font-bold text-[#e9682a]">{row.truck?.registration}</span></div><div className="text-sm font-semibold text-[#2e4335]">{driverName}</div></div></div><span className="rounded-full bg-[#e8eee5] px-2.5 py-1 text-[10px] font-bold uppercase">{row.status.replaceAll("_", " ")}</span></div><div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-[#4c5a4c] sm:grid-cols-4"><span><span className="font-bold text-[#2e4335]">Shift:</span> {shiftLabel(row.shift)}</span><span><span className="font-bold text-[#2e4335]">Opening Kilometers:</span> {row.opening_kilometers != null ? row.opening_kilometers : "—"}</span><span><span className="font-bold text-[#2e4335]">Submitted:</span> {row.submitted_at ? new Date(row.submitted_at).toLocaleString() : "Not submitted"}</span><span className={cn("font-bold", photos.length === 7 ? "text-[#2f8b5e]" : "text-[#b65323]")}>{photos.length}/7 evidence photos</span></div>{row.notes && <p className="mt-3 rounded-lg bg-[#fff6eb] px-3 py-2 text-xs text-[#6d4a2b]"><span className="font-bold">Notes: </span>{row.notes}</p>}<div className="mt-4"><p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#6a7769]">Checklist</p><div className="mt-2 divide-y divide-[#eee9dc] rounded-xl border border-[#e5dfd3]">{answers.length === 0 ? <div className="px-3 py-2 text-xs text-[#7c887b]">No checklist answers recorded.</div> : answers.map((answer, answerIndex) => { const section = answer.checklist_item?.section_title || ""; const showSection = section && section !== lastSection; lastSection = section || lastSection; const pass = answer.result === "pass"; return <React.Fragment key={answerIndex}>{showSection && <div className="bg-[#f5f1e7] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-[#6a7769]">{section}</div>}<div className="flex items-center justify-between gap-3 px-3 py-2"><span className="text-xs text-[#2e4335]">{answer.checklist_item?.prompt || "Checklist item"}</span><span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase", pass ? "bg-[#e6f3ea] text-[#2f8b5e]" : "bg-[#fce8e3] text-[#b0402a]")}>{pass ? "Pass" : "Fail"}</span></div></React.Fragment>; })}</div></div><div className="mt-4"><p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#6a7769]">Evidence photos ({photos.length}/7)</p><div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-7">{PHOTO_ORDER.map((type) => { const photo = photos.find((p) => p.photo_type === type); return <button key={type} type="button" disabled={!photo} onClick={() => photo && setSelectedPhoto({ url: photo.url, photo_type: type, truck: row.truck?.fleet_number || "Unknown truck", driver: driverName, captured_at: photo.captured_at })} className="group overflow-hidden rounded-xl border border-[#d8d3c5] bg-[#f5f1e7] text-left disabled:opacity-50"><div className="aspect-square bg-[#e5e1d5]">{photo?.url ? <img src={photo.url} alt={`${row.truck?.fleet_number || "truck"} ${type}`} className="h-full w-full object-cover transition group-hover:scale-105" /> : <div className="grid h-full place-items-center"><Camera className="h-4 w-4 text-[#889286]" /></div>}</div><div className="px-1.5 py-1"><div className="truncate text-[9px] font-bold uppercase tracking-[0.06em] text-[#718070]">{PHOTO_LABELS[type]}</div></div></button>; })}</div></div></div>; })}</div></section>
+<section className="paper-panel overflow-hidden rounded-2xl border border-[#d8d3c5]"><button type="button" onClick={() => setOpenFleet(current => !current)} className="flex w-full items-center justify-between border-b border-[#dfd9ca] px-5 py-5 text-left"><div><p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#6a7769]">Master fleet</p><h2 className="font-slab text-2xl font-bold">Fleet records</h2></div><span className="rounded-full bg-[#e8eee5] px-3 py-1 text-xs font-bold">{trucks.length} trucks</span><span className="text-xs font-bold uppercase tracking-[0.12em] text-[#e9682a]">{openFleet ? "Close" : "Open"}</span></button>{openFleet && <div className="divide-y divide-[#e5dfd3]">{loading ? <div className="p-6 text-sm">Loading fleet records…</div> : trucks.map((truck) => <div key={truck.id} role="button" tabIndex={0} onClick={() => startEdit(truck)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") startEdit(truck); }} className="flex cursor-pointer flex-wrap items-center gap-3 px-5 py-4 hover:bg-[#f5f1e7]"><div className="grid h-9 w-9 place-items-center rounded-lg bg-[#e8eee5]"><TruckIcon className="h-4 w-4" /></div><div className="min-w-0 flex-1"><div className="font-mono text-sm font-bold">{truck.fleet_number}</div><div className="font-mono text-xs font-bold text-[#e9682a]">{truck.registration}</div></div><span className="text-xs font-semibold">{truck.status.replaceAll("_", " ")}</span><Button variant="outline" onClick={(e) => { e.stopPropagation(); startEdit(truck); }} className="h-8 text-xs font-bold">Edit</Button><Button variant="outline" onClick={(e) => { e.stopPropagation(); void deleteTruck(truck); }} className="h-8 text-xs text-[#a44b2d]"><Trash2 className="h-3.5 w-3.5" /></Button></div>)}</div>}</section>
 {selectedPhoto && <div className="fixed inset-0 z-50 grid place-items-center bg-[#1f3529]/75 p-4" onClick={() => setSelectedPhoto(null)}><div className="max-h-[90vh] max-w-3xl overflow-hidden rounded-2xl bg-[#fbf8ef] shadow-2xl" onClick={(e) => e.stopPropagation()}><div className="flex items-center justify-between p-3"><div className="text-xs font-bold">{selectedPhoto.truck} · {selectedPhoto.photo_type}</div><Button variant="ghost" onClick={() => setSelectedPhoto(null)}><X className="h-4 w-4" /></Button></div>{selectedPhoto.url && <img src={selectedPhoto.url} alt="Inspection evidence" className="max-h-[78vh] w-full object-contain" />}<div className="px-4 py-3 text-xs text-[#718070]">Captured by {selectedPhoto.driver} on {new Date(selectedPhoto.captured_at).toLocaleString()}</div></div></div>}
 <section className="paper-panel overflow-hidden rounded-2xl border border-[#d8d3c5]"><button type="button" onClick={() => setOpenDrivers(current => !current)} className="flex w-full items-center justify-between border-b border-[#dfd9ca] px-5 py-5 text-left"><div><p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#6a7769]">People</p><h2 className="font-slab text-2xl font-bold">Driver profiles</h2></div><span className="text-xs font-bold">{drivers.length} profiles</span><span className="text-xs font-bold uppercase tracking-[0.12em] text-[#e9682a]">{openDrivers ? "Close" : "Open"}</span></button>{openDrivers && <div className="divide-y divide-[#e5dfd3]">{drivers.map((driver) => <div key={driver.id} className="flex items-center gap-3 px-5 py-4"><div className="grid h-9 w-9 place-items-center rounded-full bg-[#e9eee7] text-xs font-bold">{driver.full_name.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase()}</div><div className="min-w-0 flex-1"><div className="truncate text-sm font-bold">{driver.full_name}</div><div className="text-xs text-[#849083]">{driver.role} · {driver.employee_number || "No employee number"}</div></div><Button variant="outline" onClick={() => void deleteDriver(driver)} className="h-8 text-xs text-[#a44b2d]"><Trash2 className="h-3.5 w-3.5" /></Button></div>)}</div>}</section></div></main>;
 }
