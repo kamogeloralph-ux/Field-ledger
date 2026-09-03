@@ -29,9 +29,9 @@ export default function Login({ onSuccess, mode }: { onSuccess: () => void; mode
   };
 
   return (
-    <main className="min-h-screen bg-[#ede9dd] px-4 py-8 text-[#2e4335] sm:px-8 sm:py-12">
-      <div className="mx-auto grid min-h-[calc(100vh-4rem)] max-w-6xl overflow-hidden rounded-3xl border border-[#d6d0c1] bg-[#fbf8ef] shadow-[0_24px_80px_rgba(46,67,53,0.14)] lg:grid-cols-[1.02fr_0.98fr]">
-        <section className="relative overflow-hidden bg-[#203d2d] px-6 py-8 text-[#f5f0e2] sm:px-12 sm:py-12 lg:px-16 lg:py-16">
+    <main className="min-h-[100dvh] bg-[#ede9dd] px-3 py-3 text-[#2e4335] sm:px-8 sm:py-12">
+      <div className="mx-auto grid w-full max-w-md overflow-hidden rounded-2xl border border-[#d6d0c1] bg-[#fbf8ef] shadow-[0_24px_80px_rgba(46,67,53,0.14)] lg:max-w-6xl lg:grid-cols-[1.02fr_0.98fr]">
+        <section className="relative hidden overflow-hidden bg-[#203d2d] lg:block px-6 py-8 text-[#f5f0e2] sm:px-12 sm:py-12 lg:px-16 lg:py-16">
           <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full border border-[#f4a36f]/20" />
           <div className="absolute -bottom-28 -left-16 h-72 w-72 rounded-full border border-[#f4a36f]/20" />
           <div className="relative flex h-full flex-col justify-between gap-16">
@@ -50,17 +50,17 @@ export default function Login({ onSuccess, mode }: { onSuccess: () => void; mode
           </div>
         </section>
 
-        <section className="flex items-center px-6 py-8 sm:px-12 sm:py-12 lg:px-16">
+        <section className="flex items-center px-4 py-5 sm:px-12 sm:py-12 lg:px-16">
           <div className="w-full max-w-md">
-            <div className="mb-8"><p className="mb-3 text-[11px] font-bold uppercase tracking-[0.22em] text-[#e9682a]">Welcome back</p><h2 className="font-slab text-3xl font-bold tracking-[-0.05em] text-[#2e4335] sm:text-4xl">Sign in to Field Ledger</h2><p className="mt-3 text-sm leading-6 text-[#6d7a6d]">Use the account created for your fleet role.</p></div>
-            <form onSubmit={submit} className="space-y-5">
+            <div className="mb-5"><p className="mb-3 text-[11px] font-bold uppercase tracking-[0.22em] text-[#e9682a]">Welcome back</p><h2 className="font-slab text-2xl font-bold tracking-[-0.05em] text-[#2e4335] sm:text-4xl">Sign in to Field Ledger</h2><p className="mt-2 hidden text-sm leading-6 text-[#6d7a6d] sm:block">Use your fleet account to continue.</p></div>
+            <form onSubmit={submit} className="space-y-3.5 sm:space-y-5">
               {!mode && <div><label className="mb-2 block text-xs font-bold uppercase tracking-[0.12em] text-[#667466]">I am signing in as</label><div className="grid gap-2 sm:grid-cols-2">{roleOptions.map((option) => <button type="button" key={option.value} onClick={() => setRole(option.value)} className={cn("rounded-xl border px-3 py-3 text-left transition", role === option.value ? "border-[#2f8b5e] bg-[#e8eee5] text-[#2e4335]" : "border-[#d7d1c3] bg-[#fffdf6] text-[#7c877c] hover:border-[#a9b9a8]")}><span className="block text-xs font-bold">{option.label}</span><span className="mt-1 block text-[10px] leading-4">{option.description}</span></button>)}</div></div>}
               <div><label htmlFor="email" className="mb-2 block text-xs font-bold uppercase tracking-[0.12em] text-[#667466]">Work email</label><Input id="email" type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@company.com" className="h-11 rounded-xl border-[#d4cfc1] bg-[#fffdf6] text-sm" /></div>
               <div><label htmlFor="password" className="mb-2 block text-xs font-bold uppercase tracking-[0.12em] text-[#667466]">Password</label><Input id="password" type="password" autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Enter your password" className="h-11 rounded-xl border-[#d4cfc1] bg-[#fffdf6] text-sm" /></div>
               {(localError || error) && <div className="rounded-xl border border-[#e7b6aa] bg-[#fff0ec] px-4 py-3 text-sm leading-5 text-[#a33f2a]">{localError || error}</div>}
-              <Button type="submit" disabled={loading} className="h-12 w-full rounded-xl bg-[#e9682a] text-sm font-bold text-white hover:bg-[#d95a20]">{loading ? "Signing in…" : "Continue to workspace"}<ArrowRight className="ml-2 h-4 w-4" /></Button>
+              <Button type="submit" disabled={loading} className="h-11 w-full rounded-xl bg-[#e9682a] text-sm font-bold text-white hover:bg-[#d95a20]">{loading ? "Signing in…" : "Continue to workspace"}<ArrowRight className="ml-2 h-4 w-4" /></Button>
             </form>
-            <div className="mt-8 grid gap-3 border-t border-[#ded8ca] pt-6 text-xs text-[#788477] sm:grid-cols-2"><div className="flex gap-2"><LockKeyhole className="h-4 w-4 shrink-0 text-[#6a8d70]" /><span>Session protected by Supabase Auth</span></div><div className="flex gap-2"><ShieldCheck className="h-4 w-4 shrink-0 text-[#6a8d70]" /><span>Access follows your fleet role</span></div></div>
+            <div className="mt-5 hidden grid gap-3 border-t sm:grid border-[#ded8ca] pt-6 text-xs text-[#788477] sm:grid-cols-2"><div className="flex gap-2"><LockKeyhole className="h-4 w-4 shrink-0 text-[#6a8d70]" /><span>Session protected by Supabase Auth</span></div><div className="flex gap-2"><ShieldCheck className="h-4 w-4 shrink-0 text-[#6a8d70]" /><span>Access follows your fleet role</span></div></div>
           </div>
         </section>
       </div>
