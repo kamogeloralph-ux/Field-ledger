@@ -12,6 +12,14 @@ export const supabase: SupabaseClient | null = isSupabaseConfigured
     })
   : null;
 
+// The driver workflow is public and must always use the anon role. It must not
+// restore a cached admin session from the same browser origin.
+export const driverSupabase: SupabaseClient | null = isSupabaseConfigured
+  ? createClient(supabaseUrl!, supabaseAnonKey!, {
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    })
+  : null;
+
 export type SupabaseInspectionPhoto = {
   id: string;
   inspection_id: string;
@@ -20,14 +28,14 @@ export type SupabaseInspectionPhoto = {
   captured_at: string;
 };
 
-export async function uploadInspectionPhoto(file: File, inspectionId: string, photoType: string) {
-  if (!supabase) {
+export async function uploadInspectionPhoto(file: File, inspectionId: string, photoType: string, client: SupabaseClient | null = supabase) {
+  if (!client) {
     return { data: null, error: new Error("Supabase is not configured yet.") };
   }
 
   const extension = file.name.split(".").pop() || "jpg";
   const storagePath = `${inspectionId}/${photoType}-${crypto.randomUUID()}.${extension}`;
-  const { error } = await supabase.storage.from("inspection-photos").upload(storagePath, file, {
+  const { error } = await client.storage.from("inspection-photos").upload(storagePath, file, {
     cacheControl: "3600",
     upsert: false,
     contentType: file.type || "image/jpeg",

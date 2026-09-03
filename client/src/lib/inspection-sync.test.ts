@@ -7,6 +7,7 @@ import {
 
 vi.mock("./supabase", () => ({
   supabase: null,
+  driverSupabase: null,
   uploadInspectionPhoto: vi.fn(),
 }));
 
