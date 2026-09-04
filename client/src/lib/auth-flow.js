@@ -9,7 +9,10 @@ import { supabase } from "./supabase";
  * @returns {Promise<{ user: object, profile: object }>}
  */
 export function isAllowedRole(actualRole, expectedRole) {
-  return !expectedRole || actualRole === expectedRole;
+  if (!expectedRole) return true;
+  if (actualRole === expectedRole) return true;
+  if (expectedRole === "admin" && actualRole === "super_admin") return true;
+  return false;
 }
 
 export async function signInWithRole({ email, password, expectedRole }) {
@@ -24,7 +27,7 @@ export async function signInWithRole({ email, password, expectedRole }) {
 
   const { data: profile, error: profileError } = await supabase
     .from("drivers")
-    .select("id, auth_user_id, employee_number, full_name, phone, role, active")
+    .select("id, auth_user_id, employee_number, full_name, phone, role, company_id, active")
     .eq("auth_user_id", authData.user.id)
     .maybeSingle();
 
@@ -60,7 +63,7 @@ export async function getCurrentFleetSession() {
 
   const { data: profile, error: profileError } = await supabase
     .from("drivers")
-    .select("id, auth_user_id, employee_number, full_name, phone, role, active")
+    .select("id, auth_user_id, employee_number, full_name, phone, role, company_id, active")
     .eq("auth_user_id", user.id)
     .maybeSingle();
   if (profileError) throw profileError;

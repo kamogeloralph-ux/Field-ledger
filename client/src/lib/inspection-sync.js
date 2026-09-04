@@ -19,25 +19,26 @@ function readableError(error) { if (error instanceof Error) return error.message
 function retryableError(error) { if (typeof navigator !== "undefined" && !navigator.onLine) return true; const status = Number(error?.status || error?.statusCode || 0); if ([408, 429].includes(status) || status >= 500) return true; return error instanceof TypeError || /fetch|network|failed to fetch|timeout|temporar/i.test(readableError(error)); }
 export function buildInspectionDraft({ step, fullName, selectedFleet, openingKilometers, shift, checks, notes, selfieFile, photoFiles, queued = false }) { return { step, fullName, selectedFleet, openingKilometers, shift, checks, notes, selfieFile, photoFiles, queued, savedAt: new Date().toISOString() }; }
 
-async function submitOnline({ fullName, selectedFleet, openingKilometers, shift, checks, notes, selfieFile, photoFiles, checklistSections }) {
+async function submitOnline({ fullName, selectedFleet, openingKilometers, shift, checks, notes, selfieFile, photoFiles, companyId, companyCode }) {
   if (!driverSupabase) throw new Error("Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.");
   if (!fullName?.trim()) throw new Error("Full names and surnames are required.");
-  const { data: truck, error: truckError } = await driverSupabase.from("trucks").select("id, fleet_number").eq("fleet_number", selectedFleet).maybeSingle();
+  if (!companyId || !companyCode) throw new Error("No company selected. Please enter your company access code again.");
+  const { data: truck, error: truckError } = await driverSupabase.from("trucks").select("id, fleet_number").eq("fleet_number", selectedFleet).eq("company_id", companyId).maybeSingle();
   if (truckError) throw truckError;
-  if (!truck) throw new Error("The selected fleet number was not found in Supabase.");
-  const { data: template, error: templateError } = await driverSupabase.from("checklist_templates").select("id, version").eq("active", true).order("version", { ascending: false }).limit(1).maybeSingle();
+  if (!truck) throw new Error("The selected fleet number was not found for this company.");
+  const { data: template, error: templateError } = await driverSupabase.from("checklist_templates").select("id, version").eq("company_id", companyId).eq("active", true).order("version", { ascending: false }).limit(1).maybeSingle();
   if (templateError) throw templateError;
-  if (!template) throw new Error("No active checklist template exists in Supabase.");
+  if (!template) throw new Error("No active checklist template exists for this company.");
   const { data: dbItems, error: itemError } = await driverSupabase.from("checklist_items").select("id, sort_order").eq("template_id", template.id).order("sort_order");
   if (itemError) throw itemError;
-  const appItems = flattenChecklistItems(checklistSections);
-  if (!dbItems || dbItems.length !== appItems.length) throw new Error("The app checklist and Supabase checklist template do not match.");
+  if (!dbItems || dbItems.length === 0) throw new Error("This company's checklist has no items configured.");
+  if (dbItems.some((item) => checks[item.id] === undefined)) throw new Error("The checklist has changed since you started. Please refresh and try again.");
   const inspectionDate = new Date().toISOString().slice(0, 10);
   const inspectionId = crypto.randomUUID();
-  const payload = { id: inspectionId, driver_id: null, driver_name: fullName.trim(), truck_id: truck.id, opening_kilometers: openingKilometers === "" || openingKilometers == null ? null : Number(openingKilometers), shift, checklist_template_id: template.id, inspection_date: inspectionDate, started_at: new Date().toISOString(), submitted_at: new Date().toISOString(), status: "completed", notes: notes?.trim() || null, signature_name: fullName.trim() };
+  const payload = { id: inspectionId, driver_id: null, driver_name: fullName.trim(), truck_id: truck.id, opening_kilometers: openingKilometers === "" || openingKilometers == null ? null : Number(openingKilometers), shift, checklist_template_id: template.id, inspection_date: inspectionDate, started_at: new Date().toISOString(), submitted_at: new Date().toISOString(), status: "completed", notes: notes?.trim() || null, signature_name: fullName.trim(), company_id: companyId, company_access_code: companyCode };
   const { error: inspectionError } = await driverSupabase.from("daily_inspections").insert(payload);
   if (inspectionError) throw inspectionError;
-  const answers = appItems.map((item, index) => ({ inspection_id: inspectionId, checklist_item_id: dbItems[index].id, result: checks[item.id] ? "pass" : "fail" }));
+  const answers = dbItems.map((item) => ({ inspection_id: inspectionId, checklist_item_id: item.id, result: checks[item.id] ? "pass" : "fail" }));
   const { error: answerError } = await driverSupabase.from("inspection_answers").insert(answers);
   if (answerError) throw answerError;
   if (!(selfieFile instanceof File) || selfieFile.size === 0) throw new Error("The selfie image is missing. Please capture the selfie again.");
