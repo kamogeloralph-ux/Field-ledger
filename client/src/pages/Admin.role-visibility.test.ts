@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { AdminGate } from "./Admin";
 
-let activeRole: "driver" | "admin" = "driver";
+let activeRole: "admin" | "unauthorized" = "unauthorized";
 
 vi.mock("@/contexts/FleetAuthContext", () => ({
   useFleetAuth: () => ({
@@ -16,8 +16,8 @@ vi.mock("@/contexts/FleetAuthContext", () => ({
 vi.mock("@/lib/supabase", () => ({ supabase: null, isSupabaseConfigured: false }));
 
 describe("AdminGate", () => {
-  it("blocks drivers from admin controls", () => {
-    activeRole = "driver";
+  it("blocks accounts without an admin role from admin controls", () => {
+    activeRole = "unauthorized";
     expect(renderToStaticMarkup(React.createElement(AdminGate, { children: React.createElement("div", null, "Admin controls") }))).toContain("Management access required");
   });
 

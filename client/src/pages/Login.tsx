@@ -2,20 +2,19 @@ import { ArrowRight } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { type FleetRole, useFleetAuth } from "@/contexts/FleetAuthContext";
+import { useFleetAuth } from "@/contexts/FleetAuthContext";
 
-export default function Login({ onSuccess, mode = "admin" }: { onSuccess: () => void; mode?: FleetRole }) {
+export default function Login({ onSuccess }: { onSuccess: () => void }) {
   const { signIn, loading, error } = useFleetAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [localError, setLocalError] = useState<string | null>(null);
-  const admin = mode === "admin";
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setLocalError(null);
     try {
-      await signIn(email, password, mode);
+      await signIn(email, password, "admin");
       onSuccess();
     } catch (err) {
       setLocalError(err instanceof Error ? err.message : "Sign-in failed. Check your details and try again.");
@@ -32,9 +31,9 @@ export default function Login({ onSuccess, mode = "admin" }: { onSuccess: () => 
             <p className="mt-1 text-[0.72rem] font-bold uppercase tracking-[0.14em] text-[#6B7264]">Fleet Operations</p>
           </div>
         </div>
-        <p className="mt-10 text-[0.72rem] font-bold uppercase tracking-[0.14em] text-[#E8590C]">{admin ? "Admin sign in" : "Driver sign in"}</p>
+        <p className="mt-10 text-[0.72rem] font-bold uppercase tracking-[0.14em] text-[#E8590C]">Admin sign in</p>
         <h1 className="mt-2 font-slab text-4xl font-bold leading-[1.15] tracking-[-0.02em] sm:text-[2.25rem]">Run the road.<br />Not the paperwork.</h1>
-        <p className="mt-3 text-base text-[#6B7264]">{admin ? "Manage trucks, drivers, defects, and daily fleet records." : "Complete your assigned truck checklist and submit today’s evidence."}</p>
+        <p className="mt-3 text-base text-[#6B7264]">Manage trucks, companies, defects, and daily fleet records.</p>
         <form onSubmit={submit} className="mt-8 flex flex-col gap-5">
           <label className="block">
             <span className="text-[0.72rem] font-bold uppercase tracking-[0.14em] text-[#6B7264]">Work email</span>
