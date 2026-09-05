@@ -6,13 +6,33 @@ const DRAFT_KEY = "current";
 function browserStorage() { return typeof window !== "undefined" && window.localStorage ? window.localStorage : null; }
 function indexedDb() { return typeof window !== "undefined" && "indexedDB" in window ? window.indexedDB : null; }
 function openDraftDb() { const factory = indexedDb(); if (!factory) return Promise.resolve(null); return new Promise((resolve, reject) => { const request = factory.open(DRAFT_STORE, 1); request.onupgradeneeded = () => request.result.createObjectStore("drafts"); request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error ?? new Error("Unable to open offline storage.")); }); }
+// IndexedDB's structured-clone algorithm stores File/Blob objects natively — no base64 encoding
+// needed. Re-encoding every already-captured photo to base64 on every autosave (the previous
+// approach) got expensive fast as more photos were captured, which made the app prone to being
+// killed by the OS for a busy main thread right as it returned from the camera — losing progress.
+// Storing Files directly is both far cheaper and avoids the ~33% size bloat of base64.
+async function putDraft(value) { const db = await openDraftDb().catch(() => null); if (db) { await new Promise((resolve, reject) => { const request = db.transaction("drafts", "readwrite").objectStore("drafts").put(value, DRAFT_KEY); request.onsuccess = resolve; request.onerror = () => reject(request.error ?? new Error("Unable to save offline inspection.")); }); db.close(); return true; } return false; }
+// Only the localStorage fallback (used when IndexedDB is unavailable) needs base64, since
+// localStorage can only hold strings.
 function fileToDataUrl(file) { return new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve({ name: file.name, type: file.type, lastModified: file.lastModified, dataUrl: reader.result }); reader.onerror = () => reject(reader.error ?? new Error("Unable to preserve captured image.")); reader.readAsDataURL(file); }); }
 function dataUrlToFile(photo) { const [header, body] = String(photo.dataUrl).split(","); const mime = photo.type || header.match(/data:(.*?);/)?.[1] || "image/jpeg"; const binary = atob(body); const bytes = new Uint8Array(binary.length); for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i); return new File([bytes], photo.name || "inspection-photo.jpg", { type: mime, lastModified: photo.lastModified || Date.now() }); }
-async function serializeForStorage(draft) { const photos = await Promise.all(Object.entries(draft.photoFiles ?? {}).map(async ([id, file]) => [id, await fileToDataUrl(file)])); const selfieFile = draft.selfieFile ? await fileToDataUrl(draft.selfieFile) : null; return JSON.stringify({ ...draft, photoFiles: Object.fromEntries(photos), selfieFile }); }
-function deserializeFromStorage(raw) { if (!raw) return null; const parsed = JSON.parse(raw); return { ...parsed, selfieFile: parsed.selfieFile ? dataUrlToFile(parsed.selfieFile) : undefined, photoFiles: Object.fromEntries(Object.entries(parsed.photoFiles ?? {}).map(([id, photo]) => [id, dataUrlToFile(photo)])) }; }
-async function putDraft(value) { const db = await openDraftDb().catch(() => null); if (db) { await new Promise((resolve, reject) => { const request = db.transaction("drafts", "readwrite").objectStore("drafts").put(value, DRAFT_KEY); request.onsuccess = resolve; request.onerror = () => reject(request.error ?? new Error("Unable to save offline inspection.")); }); db.close(); return true; } return false; }
-export async function saveInspectionDraft(draft) { const serialized = await serializeForStorage(draft); if (await putDraft(serialized)) return; const storage = browserStorage(); if (storage) storage.setItem(`${DRAFT_STORE}:${DRAFT_KEY}`, serialized); }
-export async function loadInspectionDraft() { const db = await openDraftDb().catch(() => null); if (db) { const stored = await new Promise((resolve, reject) => { const request = db.transaction("drafts", "readonly").objectStore("drafts").get(DRAFT_KEY); request.onsuccess = () => resolve(request.result ?? null); request.onerror = () => reject(request.error); }); db.close(); return typeof stored === "string" ? deserializeFromStorage(stored) : stored; } return deserializeFromStorage(browserStorage()?.getItem(`${DRAFT_STORE}:${DRAFT_KEY}`)); }
+async function serializeForLocalStorage(draft) { const photos = await Promise.all(Object.entries(draft.photoFiles ?? {}).map(async ([id, file]) => [id, await fileToDataUrl(file)])); const selfieFile = draft.selfieFile ? await fileToDataUrl(draft.selfieFile) : null; return JSON.stringify({ ...draft, photoFiles: Object.fromEntries(photos), selfieFile }); }
+function deserializeFromLocalStorage(raw) { if (!raw) return null; const parsed = JSON.parse(raw); return { ...parsed, selfieFile: parsed.selfieFile ? dataUrlToFile(parsed.selfieFile) : undefined, photoFiles: Object.fromEntries(Object.entries(parsed.photoFiles ?? {}).map(([id, photo]) => [id, dataUrlToFile(photo)])) }; }
+export async function saveInspectionDraft(draft) {
+  if (await putDraft(draft)) return;
+  const storage = browserStorage();
+  if (storage) storage.setItem(`${DRAFT_STORE}:${DRAFT_KEY}`, await serializeForLocalStorage(draft));
+}
+export async function loadInspectionDraft() {
+  const db = await openDraftDb().catch(() => null);
+  if (db) {
+    const stored = await new Promise((resolve, reject) => { const request = db.transaction("drafts", "readonly").objectStore("drafts").get(DRAFT_KEY); request.onsuccess = () => resolve(request.result ?? null); request.onerror = () => reject(request.error); });
+    db.close();
+    // Older drafts saved before this change may still be base64 JSON strings — handle both.
+    return typeof stored === "string" ? deserializeFromLocalStorage(stored) : stored;
+  }
+  return deserializeFromLocalStorage(browserStorage()?.getItem(`${DRAFT_STORE}:${DRAFT_KEY}`));
+}
 export async function clearInspectionDraft() { const db = await openDraftDb().catch(() => null); if (db) { await new Promise((resolve, reject) => { const request = db.transaction("drafts", "readwrite").objectStore("drafts").delete(DRAFT_KEY); request.onsuccess = resolve; request.onerror = () => reject(request.error); }); db.close(); } browserStorage()?.removeItem(`${DRAFT_STORE}:${DRAFT_KEY}`); }
 export function flattenChecklistItems(sections) { return sections.flatMap((section) => section.items); }
 function readableError(error) { if (error instanceof Error) return error.message; if (error && typeof error === "object") { const message = error.message || error.details || error.hint; if (message) return String(message); } return "Unable to submit this inspection."; }
