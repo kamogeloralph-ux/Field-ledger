@@ -154,7 +154,27 @@ export default function Home() {
     return () => { window.removeEventListener("online", setNetwork); window.removeEventListener("offline", setNetwork); };
   }, []);
 
-  useEffect(() => { if (!restored) return; window.sessionStorage.setItem("field-ledger-active-step", step); void saveInspectionDraft(buildInspectionDraft({ step, fullName, selectedFleet: fleetNumber, openingKilometers, shift, checks, notes, selfieFile, photoFiles, queued: false })); }, [checks, fleetNumber, fullName, notes, openingKilometers, photoFiles, restored, selfieFile, shift, step]);
+  const draftRef = useRef({ step, fullName, fleetNumber, openingKilometers, shift, checks, notes, selfieFile, photoFiles });
+  draftRef.current = { step, fullName, fleetNumber, openingKilometers, shift, checks, notes, selfieFile, photoFiles };
+  const flushDraft = () => { const d = draftRef.current; window.sessionStorage.setItem("field-ledger-active-step", d.step); void saveInspectionDraft(buildInspectionDraft({ step: d.step, fullName: d.fullName, selectedFleet: d.fleetNumber, openingKilometers: d.openingKilometers, shift: d.shift, checks: d.checks, notes: d.notes, selfieFile: d.selfieFile, photoFiles: d.photoFiles, queued: false })); };
+
+  useEffect(() => {
+    if (!restored) return;
+    const timer = window.setTimeout(flushDraft, 250);
+    return () => window.clearTimeout(timer);
+  }, [checks, fleetNumber, fullName, notes, openingKilometers, photoFiles, restored, selfieFile, shift, step]);
+
+  // A camera capture hands the whole tab to the OS; on lower-memory phones the tab can be
+  // reclaimed while it's away and reload from scratch on return. Flushing the draft immediately
+  // whenever the tab backgrounds (rather than relying only on the debounced save above) makes
+  // sure whatever was just captured is safely persisted before that handoff happens.
+  useEffect(() => {
+    if (!restored) return;
+    const onHide = () => { if (document.visibilityState === "hidden") flushDraft(); };
+    document.addEventListener("visibilitychange", onHide);
+    window.addEventListener("pagehide", flushDraft);
+    return () => { document.removeEventListener("visibilitychange", onHide); window.removeEventListener("pagehide", flushDraft); };
+  }, [restored]);
 
   useEffect(() => {
     const retry = async () => { if (!navigator.onLine || !company) return; const draft: any = await loadInspectionDraft().catch(() => null); if (!draft?.queued) return; try { await submitInspection({ ...draft, companyId: company.companyId, companyCode: company.code, allowQueue: false }); await clearInspectionDraft(); toast.success("Saved offline inspection uploaded."); } catch { toast.info("Still waiting for a connection; your inspection remains safely stored on this device."); } };
@@ -162,7 +182,7 @@ export default function Home() {
   }, [company]);
 
   useEffect(() => () => { if (selfiePreview?.startsWith("blob:")) URL.revokeObjectURL(selfiePreview); }, [selfiePreview]);
-  const captureSelfie = (event: React.ChangeEvent<HTMLInputElement>) => { const file = event.target.files?.[0]; event.target.value = ""; if (!file) return; setSelfieFile(file); setSelfiePreview((current) => { if (current?.startsWith("blob:")) URL.revokeObjectURL(current); return URL.createObjectURL(file); }); void compressCapturedImage(file).then((compactFile) => { setSelfieFile(compactFile); setSelfiePreview((current) => { if (current?.startsWith("blob:")) URL.revokeObjectURL(current); return URL.createObjectURL(compactFile); }); }); };
+  const captureSelfie = (event: React.ChangeEvent<HTMLInputElement>) => { const file = event.target.files?.[0]; event.target.value = ""; if (!file) return; setSelfiePreview((current) => { if (current?.startsWith("blob:")) URL.revokeObjectURL(current); return URL.createObjectURL(file); }); void compressCapturedImage(file).then((compactFile) => { setSelfieFile(compactFile); setSelfiePreview((current) => { if (current?.startsWith("blob:")) URL.revokeObjectURL(current); return URL.createObjectURL(compactFile); }); }); };
   const capturePhoto = async (id: string, file?: File) => { if (!file) return; const scrollY = window.scrollY; const compactFile = await compressCapturedImage(file); setPhotoFiles((current) => ({ ...current, [id]: compactFile })); setPhotos((current) => { if (current[id]?.startsWith("blob:")) URL.revokeObjectURL(current[id]); return { ...current, [id]: URL.createObjectURL(compactFile) }; }); requestAnimationFrame(() => window.scrollTo({ top: scrollY })); window.setTimeout(() => window.scrollTo({ top: scrollY }), 250); };
   const setCheck = (id: string, value: boolean) => setChecks((current) => ({ ...current, [id]: value }));
   const next = () => { if (step === "identity") { if (!fullName.trim() || fullName.trim().split(/\s+/).length < 2) return toast.error("Enter your full names and surnames."); if (!fleetNumber.trim()) return toast.error("Choose a fleet number."); if (fleetOptions.length > 0 && !fleetOptions.some((fleet) => fleet.fleet_number === fleetNumber.trim())) return toast.error("Choose a fleet number from the list."); if (openingKilometers === "" || Number(openingKilometers) < 0) return toast.error("Enter valid opening kilometers."); if (!shift) return toast.error("Select a shift."); if (!selfieFile) return toast.error("Take a selfie before continuing."); setStep("checklist"); } else if (step === "checklist") { if (!checklistReady) return toast.error(`${allItems.length - answeredCount} checklist answers still need a response.`); setStep("evidence"); } };
