@@ -163,7 +163,7 @@ export default function Home() {
   // the tab before the regular 250ms-debounced autosave below ever fires. Persisting the
   // step the instant it changes — not on a debounce — means a restored session always
   // lands back on the right screen instead of bouncing to the start.
-  const goToStep = (nextStep: Step) => { setStep(nextStep); saveDraftObject({ ...draftRef.current, step: nextStep }); };
+  const goToStep = (nextStep: Step) => { setStep(nextStep); window.scrollTo({ top: 0, behavior: "smooth" }); saveDraftObject({ ...draftRef.current, step: nextStep }); };
   // React state updates aren't visible in draftRef until the next render, but a photo capture
   // needs to be persisted the instant it happens (that's the whole point — the tab may background
   // for the camera a moment later). This merges the just-captured file into the latest known draft
