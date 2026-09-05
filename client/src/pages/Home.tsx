@@ -156,7 +156,13 @@ export default function Home() {
 
   const draftRef = useRef({ step, fullName, fleetNumber, openingKilometers, shift, checks, notes, selfieFile, photoFiles });
   draftRef.current = { step, fullName, fleetNumber, openingKilometers, shift, checks, notes, selfieFile, photoFiles };
-  const flushDraft = () => { const d = draftRef.current; window.sessionStorage.setItem("field-ledger-active-step", d.step); void saveInspectionDraft(buildInspectionDraft({ step: d.step, fullName: d.fullName, selectedFleet: d.fleetNumber, openingKilometers: d.openingKilometers, shift: d.shift, checks: d.checks, notes: d.notes, selfieFile: d.selfieFile, photoFiles: d.photoFiles, queued: false })); };
+  const saveDraftObject = (d: typeof draftRef.current) => { window.sessionStorage.setItem("field-ledger-active-step", d.step); void saveInspectionDraft(buildInspectionDraft({ step: d.step, fullName: d.fullName, selectedFleet: d.fleetNumber, openingKilometers: d.openingKilometers, shift: d.shift, checks: d.checks, notes: d.notes, selfieFile: d.selfieFile, photoFiles: d.photoFiles, queued: false })); };
+  const flushDraft = () => saveDraftObject(draftRef.current);
+  // React state updates aren't visible in draftRef until the next render, but a photo capture
+  // needs to be persisted the instant it happens (that's the whole point — the tab may background
+  // for the camera a moment later). This merges the just-captured file into the latest known draft
+  // and writes it immediately, without waiting for a re-render.
+  const flushDraftWith = (overrides: Partial<typeof draftRef.current>) => saveDraftObject({ ...draftRef.current, ...overrides });
 
   useEffect(() => {
     if (!restored) return;
@@ -182,8 +188,28 @@ export default function Home() {
   }, [company]);
 
   useEffect(() => () => { if (selfiePreview?.startsWith("blob:")) URL.revokeObjectURL(selfiePreview); }, [selfiePreview]);
-  const captureSelfie = (event: React.ChangeEvent<HTMLInputElement>) => { const file = event.target.files?.[0]; event.target.value = ""; if (!file) return; setSelfiePreview((current) => { if (current?.startsWith("blob:")) URL.revokeObjectURL(current); return URL.createObjectURL(file); }); void compressCapturedImage(file).then((compactFile) => { setSelfieFile(compactFile); setSelfiePreview((current) => { if (current?.startsWith("blob:")) URL.revokeObjectURL(current); return URL.createObjectURL(compactFile); }); }); };
-  const capturePhoto = async (id: string, file?: File) => { if (!file) return; const scrollY = window.scrollY; const compactFile = await compressCapturedImage(file); setPhotoFiles((current) => ({ ...current, [id]: compactFile })); setPhotos((current) => { if (current[id]?.startsWith("blob:")) URL.revokeObjectURL(current[id]); return { ...current, [id]: URL.createObjectURL(compactFile) }; }); requestAnimationFrame(() => window.scrollTo({ top: scrollY })); window.setTimeout(() => window.scrollTo({ top: scrollY }), 250); };
+  const captureSelfie = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]; event.target.value = ""; if (!file) return;
+    setSelfieFile(file);
+    setSelfiePreview((current) => { if (current?.startsWith("blob:")) URL.revokeObjectURL(current); return URL.createObjectURL(file); });
+    flushDraftWith({ selfieFile: file });
+    void compressCapturedImage(file).then((compactFile) => {
+      setSelfieFile(compactFile);
+      setSelfiePreview((current) => { if (current?.startsWith("blob:")) URL.revokeObjectURL(current); return URL.createObjectURL(compactFile); });
+      flushDraftWith({ selfieFile: compactFile });
+    });
+  };
+  const capturePhoto = (id: string, file?: File) => {
+    if (!file) return;
+    const scrollY = window.scrollY;
+    setPhotoFiles((current) => { const next = { ...current, [id]: file }; flushDraftWith({ photoFiles: next }); return next; });
+    setPhotos((current) => { if (current[id]?.startsWith("blob:")) URL.revokeObjectURL(current[id]); return { ...current, [id]: URL.createObjectURL(file) }; });
+    requestAnimationFrame(() => window.scrollTo({ top: scrollY })); window.setTimeout(() => window.scrollTo({ top: scrollY }), 250);
+    void compressCapturedImage(file).then((compactFile) => {
+      setPhotoFiles((current) => { const next = { ...current, [id]: compactFile }; flushDraftWith({ photoFiles: next }); return next; });
+      setPhotos((current) => { if (current[id]?.startsWith("blob:")) URL.revokeObjectURL(current[id]); return { ...current, [id]: URL.createObjectURL(compactFile) }; });
+    });
+  };
   const setCheck = (id: string, value: boolean) => setChecks((current) => ({ ...current, [id]: value }));
   const next = () => { if (step === "identity") { if (!fullName.trim() || fullName.trim().split(/\s+/).length < 2) return toast.error("Enter your full names and surnames."); if (!fleetNumber.trim()) return toast.error("Choose a fleet number."); if (fleetOptions.length > 0 && !fleetOptions.some((fleet) => fleet.fleet_number === fleetNumber.trim())) return toast.error("Choose a fleet number from the list."); if (openingKilometers === "" || Number(openingKilometers) < 0) return toast.error("Enter valid opening kilometers."); if (!shift) return toast.error("Select a shift."); if (!selfieFile) return toast.error("Take a selfie before continuing."); setStep("checklist"); } else if (step === "checklist") { if (!checklistReady) return toast.error(`${allItems.length - answeredCount} checklist answers still need a response.`); setStep("evidence"); } };
   const submit = async () => { if (!company) return toast.error("No company selected."); if (!identityReady) return toast.error("Full names, surnames, and selfie are required."); if (!checklistReady) return toast.error("Answer every checklist item before submitting."); if (!evidenceReady) return toast.error(`Capture all ${photoSlots.length} evidence photos before submitting.`); setSaving(true); try { const result: any = await submitInspection({ fullName: fullName.trim(), selectedFleet: fleetNumber.trim(), openingKilometers, shift, checks, notes, selfieFile, photoFiles, companyId: company.companyId, companyCode: company.code }); if (result.queued) { toast.success("Inspection saved on this device. It will upload automatically when internet returns."); } else { toast.success("Inspection submitted successfully."); await clearInspectionDraft(); } setFullName(""); setFleetNumber(""); setOpeningKilometers(""); setShift(""); window.sessionStorage.removeItem("field-ledger-active-step"); setSelfieFile(undefined); setSelfiePreview(undefined); setPhotoFiles({}); setPhotos({}); setChecks({}); setNotes(""); setStep("identity"); } catch (error) { toast.error(error instanceof Error ? error.message : "Unable to submit. Your draft is still saved safely."); } finally { setSaving(false); } };
