@@ -26,6 +26,18 @@ const PHOTO_LABELS: Record<string, string> = { selfie: "Driver selfie", front: "
 function sortedPhotos(photos: ReportRow["photos"]) { return [...photos].sort((a, b) => PHOTO_ORDER.indexOf(a.photo_type as typeof PHOTO_ORDER[number]) - PHOTO_ORDER.indexOf(b.photo_type as typeof PHOTO_ORDER[number])); }
 function shiftLabel(shift: ReportRow["shift"]) { if (shift === "morning") return "Morning shift"; if (shift === "day") return "Day shift"; if (shift === "night") return "Night shift"; return "No shift recorded"; }
 function sortedAnswers(answers: ReportRow["answers"]) { return [...answers].sort((a, b) => (a.checklist_item?.sort_order ?? 0) - (b.checklist_item?.sort_order ?? 0)); }
+// Loads the same logo file used elsewhere in the app (client/public/rovana-logo.png) so the
+// PDF report can embed it. Resolves to null (rather than throwing) if the image can't be
+// loaded, so a missing/broken logo file never blocks report generation — the PDF just
+// falls back to the text-only header.
+function loadLogoImage(): Promise<HTMLImageElement | null> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = `${import.meta.env.BASE_URL}rovana-logo.png`;
+  });
+}
 
 export function AdminGate({ children }: { children: React.ReactNode }) {
   const { loading, profile, signOut } = useFleetAuth();
@@ -172,9 +184,17 @@ function AdminWorkspace() {
       };
 
       // Cover header, same shape as the wash-bay report's summary block.
-      pdf.setFont("helvetica", "bold"); pdf.setFontSize(18); pdf.text("Rovana — Fleet Inspection Report", marginX, 16);
+      const logoImg = await loadLogoImage();
+      let titleX = marginX;
+      if (logoImg) {
+        const logoH = 14;
+        const logoW = logoImg.naturalWidth && logoImg.naturalHeight ? logoH * (logoImg.naturalWidth / logoImg.naturalHeight) : logoH;
+        pdf.addImage(logoImg, "PNG", marginX, 3, logoW, logoH);
+        titleX = marginX + logoW + 4;
+      }
+      pdf.setFont("helvetica", "bold"); pdf.setFontSize(18); pdf.text("Rovana — Fleet Inspection Report", titleX, 16);
       pdf.setFont("helvetica", "normal"); pdf.setFontSize(9); pdf.setTextColor(90, 100, 90);
-      pdf.text(`Report date: ${reportDate}    Fleets inspected: ${filteredReports.length}    Generated: ${new Date().toLocaleString()}`, marginX, 22);
+      pdf.text(`Report date: ${reportDate}    Fleets inspected: ${filteredReports.length}    Generated: ${new Date().toLocaleString()}`, titleX, 22);
       pdf.setTextColor(20, 30, 25);
       y = 28;
       drawTableHeader();
