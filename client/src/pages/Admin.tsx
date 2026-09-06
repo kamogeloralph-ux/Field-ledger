@@ -145,7 +145,15 @@ function AdminWorkspace() {
       // in the key beneath the table, the same way the wash-bay report keys its short columns.
       const firstAnswers = sortedAnswers(filteredReports[0]?.answers ?? []);
       const checklistCount = firstAnswers.length;
-      const checklistCols = Array.from({ length: checklistCount }, (_, i) => `Q${i + 1}`);
+      const checklistStopwords = new Set(["and", "the", "of", "in", "on", "for", "with", "after", "before", "a", "an"]);
+      const abbreviateChecklistLabel = (prompt: string, index: number) => {
+        const firstClause = (prompt || "").split(/[,.:;]/)[0]?.trim() || "";
+        const words = firstClause.split(/\s+/).filter(Boolean).filter((w) => !checklistStopwords.has(w.toLowerCase()));
+        if (words.length === 0) return `ITEM${index + 1}`;
+        if (words.length === 1) return words[0].slice(0, 6).toUpperCase();
+        return `${words[0].slice(0, 4)}${words[1].slice(0, 2)}`.toUpperCase();
+      };
+      const checklistCols = firstAnswers.map((answer, i) => abbreviateChecklistLabel(answer.checklist_item?.prompt || "", i));
       const fixedCols = [
         { key: "#", w: 8 },
         { key: "Fleet No.", w: 20 },
@@ -159,7 +167,7 @@ function AdminWorkspace() {
         { key: "Notes", w: 0 }, // filled below with remaining space
       ];
       const usableWidth = pageWidth - marginX * 2;
-      const checklistColWidth = checklistCount > 0 ? 9 : 0;
+      const checklistColWidth = checklistCount > 0 ? 12 : 0;
       const fixedWidth = fixedCols.reduce((sum, c) => sum + c.w, 0);
       const checklistWidth = checklistColWidth * checklistCount;
       const photosWidth = tailCols[0].w;
@@ -177,7 +185,7 @@ function AdminWorkspace() {
         pdf.rect(marginX, y, usableWidth, headerHeight, "F");
         pdf.setFont("helvetica", "bold"); pdf.setFontSize(7.5); pdf.setTextColor(255, 255, 255);
         let x = marginX;
-        columns.forEach((col) => { pdf.text(col.key, x + 1.5, y + headerHeight - 2.5); x += col.w; });
+        columns.forEach((col) => { const clippedHeader = pdf.splitTextToSize(col.key, col.w - 2)[0] ?? col.key; pdf.text(clippedHeader, x + 1.5, y + headerHeight - 2.5); x += col.w; });
         pdf.setTextColor(20, 30, 25);
         y += headerHeight;
       };
@@ -226,10 +234,22 @@ function AdminWorkspace() {
 
         answers.forEach((answer) => {
           const pass = answer.result === "pass";
-          pdf.setFont("helvetica", "bold");
-          pdf.setTextColor(pass ? 40 : 176, pass ? 120 : 60, pass ? 70 : 50);
-          pdf.text(pass ? "Y" : "N", x + checklistColWidth / 2, y + rowHeight - 2.5, { align: "center" });
-          pdf.setTextColor(20, 30, 25);
+          const cx = x + checklistColWidth / 2;
+          const cy = y + rowHeight / 2;
+          const r = 2.2;
+          pdf.setFillColor(pass ? 40 : 191, pass ? 120 : 74, pass ? 70 : 46);
+          pdf.circle(cx, cy, r, "F");
+          pdf.setDrawColor(255, 255, 255);
+          pdf.setLineWidth(0.5);
+          if (pass) {
+            pdf.line(cx - r * 0.55, cy + r * 0.05, cx - r * 0.1, cy + r * 0.5);
+            pdf.line(cx - r * 0.1, cy + r * 0.5, cx + r * 0.6, cy - r * 0.45);
+          } else {
+            pdf.line(cx - r * 0.5, cy - r * 0.5, cx + r * 0.5, cy + r * 0.5);
+            pdf.line(cx - r * 0.5, cy + r * 0.5, cx + r * 0.5, cy - r * 0.5);
+          }
+          pdf.setLineWidth(0.2);
+          pdf.setDrawColor(225, 220, 205);
           x += checklistColWidth;
         });
         // Pad any missing checklist answers so columns stay aligned across rows.
@@ -247,11 +267,11 @@ function AdminWorkspace() {
       // wash-bay report's "PRE-WASH KEY" legend beneath its table.
       ensureSpace(10 + checklistCount * 4.5);
       y += 4;
-      pdf.setFont("helvetica", "bold"); pdf.setFontSize(9); pdf.text("Checklist key (Y = Pass / N = Fail)", marginX, y); y += 5.5;
+      pdf.setFont("helvetica", "bold"); pdf.setFontSize(9); pdf.text("Checklist key (green = Pass, red = Fail)", marginX, y); y += 5.5;
       pdf.setFont("helvetica", "normal"); pdf.setFontSize(8); pdf.setTextColor(90, 100, 90);
       firstAnswers.forEach((answer, i) => {
         ensureSpace(4.5);
-        pdf.text(`Q${i + 1}  ${answer.checklist_item?.prompt || "Checklist item"}`, marginX, y);
+        pdf.text(`${checklistCols[i]}   ${answer.checklist_item?.prompt || "Checklist item"}`, marginX, y);
         y += 4.5;
       });
       pdf.setTextColor(20, 30, 25);
