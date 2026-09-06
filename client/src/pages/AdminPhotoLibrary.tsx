@@ -24,7 +24,7 @@ type LibraryPhoto = {
 
 const PHOTO_LABELS: Record<string, string> = { selfie: "Driver selfie", front: "Front", rear: "Rear", left: "Left side", right: "Right side", cab: "Cab interior", dashboard: "Dashboard" };
 
-export default function AdminPhotoLibrary({ selectedCompanyId, company, fleetOptions, onRetentionSaved }: { selectedCompanyId: string | null; company: CompanyInfo | null; fleetOptions: FleetOption[]; onRetentionSaved: () => void | Promise<void> }) {
+export default function AdminPhotoLibrary({ selectedCompanyId, company, fleetOptions, onRetentionSaved, onAudit }: { selectedCompanyId: string | null; company: CompanyInfo | null; fleetOptions: FleetOption[]; onRetentionSaved: () => void | Promise<void>; onAudit?: (entityType: string, entityId: string, action: string, metadata?: Record<string, unknown>) => void | Promise<void> }) {
   const [open, setOpen] = useState(false);
   const [fleet, setFleet] = useState("");
   const [date, setDate] = useState("");
@@ -84,6 +84,7 @@ export default function AdminPhotoLibrary({ selectedCompanyId, company, fleetOpt
     const { error: rowError } = await supabase.from("inspection_photos").delete().in("id", targets.map((p) => p.id));
     setDeleting(false);
     if (rowError) return toast.error(rowError.message);
+    await onAudit?.("photo", targets.map((p) => p.id).join(","), "deleted", { count: targets.length, fleet: targets[0]?.fleet_number });
     toast.success(`${targets.length} photo${targets.length === 1 ? "" : "s"} deleted.`);
     const deletedIds = new Set(targets.map((p) => p.id));
     setPhotos((current) => current.filter((p) => !deletedIds.has(p.id)));
@@ -139,6 +140,7 @@ export default function AdminPhotoLibrary({ selectedCompanyId, company, fleetOpt
     const { error } = await supabase.from("companies").update({ photo_retention_days: value }).eq("id", selectedCompanyId);
     setSavingRetention(false);
     if (error) return toast.error(error.message);
+    await onAudit?.("company", selectedCompanyId, "retention_changed", { photo_retention_days: value });
     toast.success(value ? `Evidence photos will auto-delete ${value} days after capture.` : "Automatic photo deletion turned off.");
     await onRetentionSaved();
   };
