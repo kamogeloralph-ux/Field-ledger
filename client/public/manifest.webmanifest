@@ -2,23 +2,39 @@
   "name": "Rovana Fleet Operations",
   "short_name": "Rovana",
   "description": "Rovana keeps fleet operations, inspections, and evidence in one place.",
+  "id": "/",
   "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#FAF6EF",
   "theme_color": "#14532D",
   "orientation": "portrait-primary",
+  "categories": ["business", "productivity"],
   "icons": [
     {
-      "src": "./rovana-logo.png",
+      "src": "./icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
-      "src": "./rovana-logo.png",
+      "src": "./icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-192-maskable.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "./icons/icon-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }
+
