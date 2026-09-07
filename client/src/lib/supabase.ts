@@ -89,7 +89,19 @@ export async function uploadInspectionPhotoToR2(file: File, inspectionId: string
     body: { inspectionId, photoType, contentType },
   });
   if (presignError || !presign?.uploadUrl) {
-    return { data: null, error: presignError instanceof Error ? presignError : new Error("Could not get an upload URL for this photo.") };
+    // supabase-js's default error message ("Edge Function returned a non-2xx status code")
+    // hides the actual reason. FunctionsHttpError carries the real response on .context —
+    // unwrap it so failures are diagnosable from the toast instead of only from the
+    // Supabase dashboard's function logs.
+    let detail = "Could not get an upload URL for this photo.";
+    const context = (presignError as { context?: Response })?.context;
+    if (context && typeof context.json === "function") {
+      try {
+        const body = await context.json();
+        if (body?.error) detail = body.error;
+      } catch { /* response body wasn't JSON — keep the generic message */ }
+    }
+    return { data: null, error: new Error(detail) };
   }
 
   const uploadRes = await fetch(presign.uploadUrl, {
