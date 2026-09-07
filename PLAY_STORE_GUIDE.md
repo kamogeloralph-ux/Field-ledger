@@ -1,4 +1,4 @@
-# Getting Rovana (Field Ledger) onto the Google Play Store
+# Getting Rovaya (Field Ledger) onto the Google Play Store
 
 The approach: package the existing PWA as a **Trusted Web Activity (TWA)** — Google's
 official, supported way to publish a PWA on Play. A TWA is a thin native shell that opens
@@ -71,9 +71,9 @@ one-time $25 registration fee, and complete identity verification. This can take
 from a few hours to a couple of days — worth starting now so it's not the bottleneck later.
 
 **Also decide your `applicationId` now** — this is Android's permanent internal name for
-the app (like `com.rovana.fleetops`), reverse-domain style. **It can never be changed after
+the app (like `com.rovaya.fleetops`), reverse-domain style. **It can never be changed after
 your first Play Store upload**, so pick it deliberately. A reasonable default:
-`com.rovana.fleetops` — let me know if you'd rather use something tied to your real domain
+`com.rovaya.fleetops` — let me know if you'd rather use something tied to your real domain
 once you have it, and I'll note it for Step 5.
 
 ## Step 4 — Install Bubblewrap and generate the Android project
@@ -90,8 +90,8 @@ bubblewrap init --manifest=https://YOUR-DOMAIN/manifest.webmanifest
 Bubblewrap will download the Android SDK components it needs (first run only), then walk
 you through prompts — pull the defaults from your manifest, but confirm these specifically:
 
-- **Application ID**: the `com.rovana.fleetops`-style ID you picked in Step 3.
-- **App name / launcher name**: "Rovana" is already in the manifest.
+- **Application ID**: the `com.rovaya.fleetops`-style ID you picked in Step 3.
+- **App name / launcher name**: "Rovaya" is already in the manifest.
 - **Display mode**: `standalone` (already set).
 - **Signing key**: choose "Create a new one." Bubblewrap will ask for a **keystore
   password** and a **key password** — write both down somewhere safe (a password manager).
@@ -112,7 +112,7 @@ This produces `app-release-bundle.aab` (the file you upload to Play Console) and
 
 Edit `client/public/.well-known/assetlinks.json` in this repo:
 
-- `package_name` → your `applicationId` from Step 4 (e.g. `com.rovana.fleetops`).
+- `package_name` → your `applicationId` from Step 4 (e.g. `com.rovaya.fleetops`).
 - `sha256_cert_fingerprints` → the fingerprint Bubblewrap printed (keep the array format,
   it can hold more than one if you ever add a second signing key).
 
@@ -127,7 +127,7 @@ dotfiles even with `.nojekyll` in place).
 
 In your new app's dashboard:
 
-- **Privacy policy** (required): you'll need a hosted page describing what Rovana collects
+- **Privacy policy** (required): you'll need a hosted page describing what Rovaya collects
   — driver names, evidence photos, checklist responses, stored via Supabase. A simple
   static page works; happy to draft one for you if you want.
 - **Data safety form**: declare that the app collects *Personal info* (name) and *Photos*,
@@ -166,7 +166,7 @@ settings.
 ## Open items I need from you
 
 1. Your actual domain, once registered, to finalize `CNAME` and the Play Console listing.
-2. Confirmation on the `applicationId` (default suggestion: `com.rovana.fleetops`).
+2. Confirmation on the `applicationId` (default suggestion: `com.rovaya.fleetops`).
 3. Whether you'd like me to draft the privacy policy page, feature graphic, and/or capture
    store-listing screenshots — say the word and I'll get started on any of those now, they
    don't need to wait on the domain.
