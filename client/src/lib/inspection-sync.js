@@ -37,9 +37,9 @@ export async function clearInspectionDraft() { const db = await openDraftDb().ca
 export function flattenChecklistItems(sections) { return sections.flatMap((section) => section.items); }
 function readableError(error) { if (error instanceof Error) return error.message; if (error && typeof error === "object") { const message = error.message || error.details || error.hint; if (message) return String(message); } return "Unable to submit this inspection."; }
 function retryableError(error) { if (typeof navigator !== "undefined" && !navigator.onLine) return true; const status = Number(error?.status || error?.statusCode || 0); if ([408, 429].includes(status) || status >= 500) return true; return error instanceof TypeError || /fetch|network|failed to fetch|timeout|temporar/i.test(readableError(error)); }
-export function buildInspectionDraft({ step, fullName, selectedFleet, openingKilometers, shift, checks, notes, selfieFile, photoFiles, queued = false }) { return { step, fullName, selectedFleet, openingKilometers, shift, checks, notes, selfieFile, photoFiles, queued, savedAt: new Date().toISOString() }; }
+export function buildInspectionDraft({ step, fullName, selectedFleet, openingKilometers, shift, checks, itemNotes, notes, selfieFile, photoFiles, queued = false }) { return { step, fullName, selectedFleet, openingKilometers, shift, checks, itemNotes, notes, selfieFile, photoFiles, queued, savedAt: new Date().toISOString() }; }
 
-async function submitOnline({ fullName, selectedFleet, openingKilometers, shift, checks, notes, selfieFile, photoFiles, companyId, companyCode }) {
+async function submitOnline({ fullName, selectedFleet, openingKilometers, shift, checks, itemNotes, notes, selfieFile, photoFiles, companyId, companyCode }) {
   if (!driverSupabase) throw new Error("Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.");
   if (!fullName?.trim()) throw new Error("Full names and surnames are required.");
   if (!companyId || !companyCode) throw new Error("No company selected. Please enter your company access code again.");
@@ -49,7 +49,7 @@ async function submitOnline({ fullName, selectedFleet, openingKilometers, shift,
   const { data: template, error: templateError } = await driverSupabase.from("checklist_templates").select("id, version").eq("company_id", companyId).eq("active", true).order("version", { ascending: false }).limit(1).maybeSingle();
   if (templateError) throw templateError;
   if (!template) throw new Error("No active checklist template exists for this company.");
-  const { data: dbItems, error: itemError } = await driverSupabase.from("checklist_items").select("id, sort_order").eq("template_id", template.id).order("sort_order");
+  const { data: dbItems, error: itemError } = await driverSupabase.from("checklist_items").select("id, sort_order, prompt").eq("template_id", template.id).order("sort_order");
   if (itemError) throw itemError;
   if (!dbItems || dbItems.length === 0) throw new Error("This company's checklist has no items configured.");
   if (dbItems.some((item) => checks[item.id] === undefined)) throw new Error("The checklist has changed since you started. Please refresh and try again.");
@@ -61,6 +61,12 @@ async function submitOnline({ fullName, selectedFleet, openingKilometers, shift,
   const answers = dbItems.map((item) => ({ inspection_id: inspectionId, checklist_item_id: item.id, result: checks[item.id] ? "pass" : "fail" }));
   const { error: answerError } = await driverSupabase.from("inspection_answers").insert(answers);
   if (answerError) throw answerError;
+  const failedItems = dbItems.filter((item) => !checks[item.id]);
+  if (failedItems.length > 0) {
+    const defectRows = failedItems.map((item) => ({ inspection_id: inspectionId, category: "checklist", severity: "medium", title: item.prompt || "Failed checklist item", description: itemNotes?.[item.id]?.trim() || null, status: "open", reported_by: null }));
+    const { error: defectError } = await driverSupabase.from("defects").insert(defectRows);
+    if (defectError) throw defectError;
+  }
   if (!(selfieFile instanceof File) || selfieFile.size === 0) throw new Error("The selfie image is missing. Please capture the selfie again.");
   const selfieUpload = await uploadInspectionPhoto(selfieFile, inspectionId, "selfie", driverSupabase);
   if (selfieUpload.error) throw selfieUpload.error;
