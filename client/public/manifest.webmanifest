@@ -1,7 +1,7 @@
 {
-  "name": "Rovana Fleet Operations",
-  "short_name": "Rovana",
-  "description": "Rovana keeps fleet operations, inspections, and evidence in one place.",
+  "name": "Rovaya Fleet Operations",
+  "short_name": "Rovaya",
+  "description": "Rovaya keeps fleet operations, inspections, and evidence in one place.",
   "id": "/",
   "start_url": "./",
   "scope": "./",
