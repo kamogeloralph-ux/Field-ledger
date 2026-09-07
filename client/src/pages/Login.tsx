@@ -28,7 +28,7 @@ export default function Login({ onSuccess }: { onSuccess: () => void }) {
       <section className="w-full max-w-md rounded-[2rem] border border-[#E7DFD0] bg-white px-6 py-9 shadow-[0_24px_60px_-24px_rgba(20,83,45,0.25)] sm:px-10 sm:py-12">
         <div className="flex items-center gap-4">
           <div>
-            <h2 className="font-slab text-[1.875rem] font-bold leading-none tracking-[-0.02em] inline-flex items-center"><img src={rMarkUrl} alt="R" className="h-[0.82em] w-auto mr-[0.03em] translate-y-[0.02em]" />ovana</h2>
+            <h2 className="font-slab text-[1.875rem] font-semibold leading-none tracking-[-0.02em] inline-flex items-end"><img src={rMarkUrl} alt="R" className="h-[0.82em] w-auto mr-[0.03em]" />ovana</h2>
             <p className="mt-1 text-[0.72rem] font-bold uppercase tracking-[0.14em] text-[#6B7264]">Fleet Operations</p>
           </div>
         </div>
