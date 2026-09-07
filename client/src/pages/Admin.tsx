@@ -71,7 +71,7 @@ function toastError(message: string) { window.dispatchEvent(new CustomEvent("fie
 function AdminWorkspace() {
   const { profile, signOut } = useFleetAuth();
   const isSuperAdmin = profile?.role === "super_admin";
-  const [trucks, setTrucks] = useState<AdminTruck[]>([]); const [admins, setAdmins] = useState<AdminAccount[]>([]); const [reports, setReports] = useState<ReportRow[]>([]); const [companies, setCompanies] = useState<AdminCompany[]>([]); const [loading, setLoading] = useState(true); const [generatingPdf, setGeneratingPdf] = useState(false);
+  const [trucks, setTrucks] = useState<AdminTruck[]>([]); const [admins, setAdmins] = useState<AdminAccount[]>([]); const [reports, setReports] = useState<ReportRow[]>([]); const [companies, setCompanies] = useState<AdminCompany[]>([]); const [loading, setLoading] = useState(true); const [generatingPdf, setGeneratingPdf] = useState(false); const [generatingDefectsPdf, setGeneratingDefectsPdf] = useState(false);
   const [defects, setDefects] = useState<AdminDefect[]>([]); const [defectStatusFilter, setDefectStatusFilter] = useState<"open" | "in_progress" | "resolved" | "waived" | "all">("open"); const [openDefects, setOpenDefects] = useState(false);
   const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]); const [openAudit, setOpenAudit] = useState(false);
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(() => (profile?.role === "admin" ? profile.company_id ?? null : null));
@@ -177,7 +177,7 @@ function AdminWorkspace() {
       row.opening_kilometers != null ? `Opening Kilometers: ${row.opening_kilometers}` : "Opening Kilometers: —",
       row.driver_name || "",
       row.status.replaceAll("_", " "),
-      sortedAnswers(row.answers ?? []).map((a) => `${a.checklist_item?.prompt ?? "Checklist item"}: ${a.result === "pass" ? "Pass" : "Fail"}`).join("; "),
+      sortedAnswers(row.answers ?? []).map((a) => `${a.checklist_item?.prompt ?? "Checklist item"}: ${a.result === "pass" ? "Y" : "N"}`).join("; "),
       row.notes || "",
       `${row.photos?.length || 0}/7`,
     ])];
@@ -340,6 +340,105 @@ function AdminWorkspace() {
       setGeneratingPdf(false);
     }
   };
+  const shareDefectsReport = async () => {
+    if (filteredDefects.length === 0) return toastError("No defects to include in this report.");
+    setGeneratingDefectsPdf(true);
+    try {
+      const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "landscape" });
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const marginX = 10;
+      const bottomLimit = pageHeight - 12;
+      const usableWidth = pageWidth - marginX * 2;
+
+      const columns = [
+        { key: "#", w: 8 },
+        { key: "Fleet No.", w: 20 },
+        { key: "Registration", w: 24 },
+        { key: "Driver", w: 32 },
+        { key: "Date", w: 22 },
+        { key: "Category", w: 24 },
+        { key: "Severity", w: 20 },
+        { key: "Status", w: 24 },
+        { key: "Description", w: 0 },
+      ];
+      const fixedWidth = columns.slice(0, -1).reduce((sum, c) => sum + c.w, 0);
+      columns[columns.length - 1].w = Math.max(40, usableWidth - fixedWidth);
+
+      const rowHeight = 9;
+      const headerHeight = 8;
+      let y = 0;
+
+      const severityColor: Record<AdminDefect["severity"], [number, number, number]> = {
+        critical: [176, 40, 42], high: [176, 64, 42], medium: [165, 77, 31], low: [90, 100, 90],
+      };
+
+      const drawHeader = () => {
+        pdf.setFillColor(47, 70, 56);
+        pdf.rect(marginX, y, usableWidth, headerHeight, "F");
+        pdf.setFont("helvetica", "bold"); pdf.setFontSize(7.5); pdf.setTextColor(255, 255, 255);
+        let x = marginX;
+        columns.forEach((col) => { pdf.text(col.key, x + 1.5, y + headerHeight - 2.5); x += col.w; });
+        pdf.setTextColor(20, 30, 25);
+        y += headerHeight;
+      };
+
+      const ensureSpace = (needed: number) => {
+        if (y + needed > bottomLimit) { pdf.addPage(); y = 20; drawHeader(); }
+      };
+
+      pdf.setFont("helvetica", "bold"); pdf.setFontSize(18); pdf.text(`${companyName} — Defects Report`, marginX, 16);
+      pdf.setFont("helvetica", "normal"); pdf.setFontSize(9); pdf.setTextColor(90, 100, 90);
+      pdf.text(`Filter: ${defectStatusFilter.replaceAll("_", " ")}    Defects listed: ${filteredDefects.length}    Generated: ${new Date().toLocaleString()}`, marginX, 22);
+      pdf.setTextColor(20, 30, 25);
+      y = 28;
+      drawHeader();
+
+      filteredDefects.forEach((defect, index) => {
+        const description = defect.description ? `${defect.title} — ${defect.description}` : defect.title;
+        const descLines = pdf.splitTextToSize(description, columns[columns.length - 1].w - 2);
+        const linesNeeded = Math.max(1, Math.min(descLines.length, 3));
+        const thisRowHeight = Math.max(rowHeight, linesNeeded * 4 + 3);
+        ensureSpace(thisRowHeight);
+        if (index % 2 === 1) { pdf.setFillColor(245, 242, 234); pdf.rect(marginX, y, usableWidth, thisRowHeight, "F"); }
+
+        let x = marginX;
+        pdf.setFont("helvetica", "normal"); pdf.setFontSize(7.5); pdf.setTextColor(20, 30, 25);
+        const cell = (text: string, width: number, opts?: { bold?: boolean; color?: [number, number, number] }) => {
+          pdf.setFont("helvetica", opts?.bold ? "bold" : "normal");
+          if (opts?.color) pdf.setTextColor(...opts.color); else pdf.setTextColor(20, 30, 25);
+          const clipped = pdf.splitTextToSize(text, width - 2)[0] ?? "";
+          pdf.text(clipped, x + 1.5, y + 5.5);
+          x += width;
+        };
+
+        cell(String(index + 1), columns[0].w);
+        cell(formatFleetNumber(defect.inspection?.truck?.fleet_number || ""), columns[1].w, { bold: true });
+        cell(defect.inspection?.truck?.registration || "—", columns[2].w);
+        cell(defect.inspection?.driver_name || "Unknown", columns[3].w);
+        cell(defect.inspection?.inspection_date || "—", columns[4].w);
+        cell(defect.category || "—", columns[5].w);
+        cell(defect.severity.toUpperCase(), columns[6].w, { bold: true, color: severityColor[defect.severity] });
+        cell(defect.status.replaceAll("_", " "), columns[7].w);
+
+        pdf.setFont("helvetica", "normal"); pdf.setFontSize(7.5); pdf.setTextColor(20, 30, 25);
+        descLines.slice(0, 3).forEach((line: string, i: number) => pdf.text(line, x + 1.5, y + 5.5 + i * 4));
+
+        pdf.setDrawColor(225, 220, 205);
+        pdf.line(marginX, y + thisRowHeight, marginX + usableWidth, y + thisRowHeight);
+        y += thisRowHeight;
+      });
+
+      const blob = pdf.output("blob");
+      const file = new File([blob], `${companyName.toLowerCase().replace(/\s+/g, "-")}-defects-${defectStatusFilter}.pdf`, { type: "application/pdf" });
+      if (navigator.share && navigator.canShare?.({ files: [file] })) await navigator.share({ title: `${companyName} defects report`, text: `Defects report (${defectStatusFilter})`, files: [file] });
+      else { const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = file.name; link.click(); toastSuccess("Defects report downloaded."); }
+    } catch (error) {
+      toastError(error instanceof Error ? error.message : "Unable to generate the defects report.");
+    } finally {
+      setGeneratingDefectsPdf(false);
+    }
+  };
   const startEdit = (truck: AdminTruck) => { setEditingTruckId(truck.id); setTruckForm({ fleet_number: truck.fleet_number, registration: truck.registration, truck_type: truck.truck_type ?? "", model: truck.model ?? "", size: truck.size ?? "", status: truck.status, license_disc_expiry: truck.license_disc_expiry ?? "", roadworthy_expiry: truck.roadworthy_expiry ?? "", insurance_expiry: truck.insurance_expiry ?? "", next_service_km: truck.next_service_km == null ? "" : String(truck.next_service_km) }); setOpenCard("truck"); };
 
   return <main className="min-h-screen bg-[#ede9dd] text-[#2e4335]"><header className="flex flex-wrap items-center justify-between gap-4 border-b border-[#d8d3c5] bg-[#f7f3e9] px-4 py-4 sm:px-8"><div className="flex items-center gap-3"><img src={`${import.meta.env.BASE_URL}rovana-logo.png`} alt="Rovaya" className="h-10 w-10 rounded-xl object-cover" /><div><p className="font-slab text-xl font-bold">Admin control</p><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#7b8775]">Rovaya · {profile?.full_name}</p></div></div><div className="flex items-center gap-1.5 sm:gap-2"><Button variant="outline" onClick={exportFleet} className="h-8 rounded-lg bg-[#fbf8ef] px-2.5 text-[10px] font-bold sm:h-9 sm:px-3 sm:text-xs"><Download className="mr-1 h-3 w-3 sm:mr-2 sm:h-3.5 sm:w-3.5" />Export</Button><Button variant="outline" onClick={() => void load()} className="h-8 rounded-lg bg-[#fbf8ef] px-2.5 text-[10px] font-bold sm:h-9 sm:px-3 sm:text-xs"><RefreshCw className="mr-1 h-3 w-3 sm:mr-2 sm:h-3.5 sm:w-3.5" />Refresh</Button><Button variant="outline" onClick={() => void signOut()} className="h-8 rounded-lg bg-[#fbf8ef] px-2.5 text-[10px] font-bold sm:h-9 sm:px-3 sm:text-xs"><X className="mr-1 h-3 w-3 sm:mr-2 sm:h-3.5 sm:w-3.5" />Sign out</Button></div></header><div className="mx-auto max-w-7xl space-y-6 p-4 pb-16 sm:p-8"><div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-[#7c887b]"><button type="button" onClick={() => { void signOut().finally(() => window.location.replace(import.meta.env.BASE_URL)); }} className="inline-flex items-center gap-2 hover:text-[#e9682a]"><ArrowLeft className="h-3.5 w-3.5" />Return to workspace</button><span>/</span><span className="text-[#e9682a]">Admin only</span></div>
@@ -354,7 +453,7 @@ function AdminWorkspace() {
 <section className="paper-panel overflow-hidden rounded-2xl border border-[#d8d3c5]"><button type="button" onClick={() => setOpenFleet(current => !current)} className="flex w-full items-center justify-between border-b border-[#dfd9ca] px-5 py-5 text-left"><div><p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#6a7769]">Master fleet</p><h2 className="font-slab text-2xl font-bold">Fleet records</h2></div><span className="rounded-full bg-[#e8eee5] px-3 py-1 text-xs font-bold">{trucks.length} trucks</span><span className="text-xs font-bold uppercase tracking-[0.12em] text-[#e9682a]">{openFleet ? "Close" : "Open"}</span></button>{openFleet && <div className="divide-y divide-[#e5dfd3]">{loading ? <div className="p-6 text-sm">Loading fleet records…</div> : trucks.map((truck) => <div key={truck.id} role="button" tabIndex={0} onClick={() => startEdit(truck)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") startEdit(truck); }} className="flex cursor-pointer flex-wrap items-center gap-3 px-5 py-4 hover:bg-[#f5f1e7]"><div className="grid h-9 w-9 place-items-center rounded-lg bg-[#e8eee5]"><TruckIcon className="h-4 w-4" /></div><div className="min-w-0 flex-1"><div className="font-mono text-sm font-bold">{truck.fleet_number}</div><div className="font-mono text-xs font-bold text-[#e9682a]">{truck.registration}</div></div><span className="text-xs font-semibold">{truck.status.replaceAll("_", " ")}</span><div className="flex flex-wrap gap-1.5">{[["Disc", truck.license_disc_expiry], ["COF", truck.roadworthy_expiry], ["Insurance", truck.insurance_expiry]].map(([label, date]) => <ExpiryBadge key={label} label={label as string} date={date as string | null} />)}</div><Button variant="outline" onClick={(e) => { e.stopPropagation(); startEdit(truck); }} className="h-8 text-xs font-bold">Edit</Button><Button variant="outline" onClick={(e) => { e.stopPropagation(); void deleteTruck(truck); }} className="h-8 text-xs text-[#a44b2d]"><Trash2 className="h-3.5 w-3.5" /></Button></div>)}</div>}</section>
 <section className="paper-panel overflow-hidden rounded-2xl border border-[#d8d3c5]"><button type="button" onClick={() => setOpenMissed((c) => !c)} className="flex w-full items-center justify-between border-b border-[#dfd9ca] px-5 py-5 text-left"><div><p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#6a7769]">Compliance</p><h2 className="font-slab text-2xl font-bold">Missed inspections — {reportDate}</h2></div><span className={cn("rounded-full px-3 py-1 text-xs font-bold", missedTrucks.length > 0 ? "bg-[#fff0dc] text-[#a54d1f]" : "bg-[#e6f3ea] text-[#2f8b5e]")}>{missedTrucks.length} truck{missedTrucks.length === 1 ? "" : "s"}</span><span className="text-xs font-bold uppercase tracking-[0.12em] text-[#e9682a]">{openMissed ? "Close" : "Open"}</span></button>{openMissed && <div className="divide-y divide-[#e5dfd3]">{missedTrucks.length === 0 ? <div className="p-6 text-sm text-[#6a7769]">Every active truck has a report for this date.</div> : missedTrucks.map((truck) => <div key={truck.id} className="flex items-center gap-3 px-5 py-4"><AlertTriangle className="h-4 w-4 text-[#a54d1f]" /><div className="min-w-0 flex-1"><div className="font-mono text-sm font-bold">{truck.fleet_number}</div><div className="font-mono text-xs font-bold text-[#e9682a]">{truck.registration}</div></div><span className="text-xs font-semibold text-[#a54d1f]">No report on {reportDate}</span></div>)}</div>}</section>
 <section className="paper-panel overflow-hidden rounded-2xl border border-[#d8d3c5] p-5"><p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#6a7769]">Insights</p><h2 className="font-slab text-2xl font-bold">Analytics — {reportDate}</h2><div className="mt-4 grid gap-4 sm:grid-cols-2"><div><p className="text-xs font-bold uppercase tracking-[0.1em] text-[#6a7769]">Top failing checklist items</p>{topFailingItems.length === 0 ? <p className="mt-3 text-sm text-[#7c887b]">No failures recorded for this date.</p> : <div className="mt-2 h-52"><ResponsiveContainer width="100%" height="100%"><BarChart data={topFailingItems} layout="vertical" margin={{ left: 8, right: 8, top: 4, bottom: 4 }}><XAxis type="number" allowDecimals={false} hide /><YAxis type="category" dataKey="prompt" width={140} tick={{ fontSize: 11 }} /><Tooltip /><Bar dataKey="count" fill="#b0402a" radius={4} /></BarChart></ResponsiveContainer></div>}</div><div className="flex flex-col justify-center rounded-xl bg-[#f5f1e7] p-5"><p className="text-xs font-bold uppercase tracking-[0.1em] text-[#6a7769]">Photo compliance</p><p className="mt-1 font-slab text-4xl font-bold text-[#14532D]">{photoComplianceRate}%</p><p className="mt-1 text-xs text-[#6a7769]">{fullPhotoCount} of {reports.length} report{reports.length === 1 ? "" : "s"} have all 7 evidence photos.</p></div></div></section>
-<section className="paper-panel overflow-hidden rounded-2xl border border-[#d8d3c5]"><button type="button" onClick={() => setOpenDefects((c) => !c)} className="flex w-full items-center justify-between border-b border-[#dfd9ca] px-5 py-5 text-left"><div><p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#6a7769]">Follow-up</p><h2 className="font-slab text-2xl font-bold">Defects</h2></div><span className={cn("rounded-full px-3 py-1 text-xs font-bold", openDefectCount > 0 ? "bg-[#fce8e3] text-[#b0402a]" : "bg-[#e6f3ea] text-[#2f8b5e]")}>{openDefectCount} open</span><span className="text-xs font-bold uppercase tracking-[0.12em] text-[#e9682a]">{openDefects ? "Close" : "Open"}</span></button>{openDefects && <div><div className="flex flex-wrap gap-2 border-b border-[#e5dfd3] px-5 py-3">{(["open", "in_progress", "resolved", "waived", "all"] as const).map((status) => <button key={status} type="button" onClick={() => setDefectStatusFilter(status)} className={cn("rounded-full px-3 py-1.5 text-xs font-bold", defectStatusFilter === status ? "bg-[#14532D] text-white" : "bg-[#f5f1e7] text-[#6a7769]")}>{status.replaceAll("_", " ")}</button>)}</div><div className="divide-y divide-[#e5dfd3]">{filteredDefects.length === 0 ? <div className="p-6 text-sm text-[#6a7769]">No defects in this view.</div> : filteredDefects.map((defect) => <div key={defect.id} className="flex flex-wrap items-center gap-3 px-5 py-4"><span className={cn("rounded-full px-2 py-0.5 text-[10px] font-bold uppercase", defect.severity === "critical" || defect.severity === "high" ? "bg-[#fce8e3] text-[#b0402a]" : "bg-[#fff0dc] text-[#a54d1f]")}>{defect.severity}</span><div className="min-w-0 flex-1"><div className="text-sm font-bold">{defect.title}</div><div className="text-xs text-[#6a7769]">{defect.inspection?.truck?.fleet_number ?? "Unknown fleet"} · {defect.inspection?.driver_name ?? "Unknown driver"} · {defect.inspection?.inspection_date}</div>{defect.description && <div className="mt-1 rounded-lg bg-[#f5f1e7] px-2.5 py-1.5 text-xs italic text-[#4c5a4c]">"{defect.description}"</div>}</div><select value={defect.status} onChange={(e) => void updateDefectStatus(defect, e.target.value as AdminDefect["status"])} className="h-9 rounded-lg border border-[#d4cfc1] bg-white px-2 text-xs font-bold"><option value="open">Open</option><option value="in_progress">In progress</option><option value="resolved">Resolved</option><option value="waived">Waived</option></select></div>)}</div></div>}</section>
+<section className="paper-panel overflow-hidden rounded-2xl border border-[#d8d3c5]"><button type="button" onClick={() => setOpenDefects((c) => !c)} className="flex w-full items-center justify-between border-b border-[#dfd9ca] px-5 py-5 text-left"><div><p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#6a7769]">Follow-up</p><h2 className="font-slab text-2xl font-bold">Defects</h2></div><span className={cn("rounded-full px-3 py-1 text-xs font-bold", openDefectCount > 0 ? "bg-[#fce8e3] text-[#b0402a]" : "bg-[#e6f3ea] text-[#2f8b5e]")}>{openDefectCount} open</span><span className="text-xs font-bold uppercase tracking-[0.12em] text-[#e9682a]">{openDefects ? "Close" : "Open"}</span></button>{openDefects && <div><div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#e5dfd3] px-5 py-3"><div className="flex flex-wrap gap-2">{(["open", "in_progress", "resolved", "waived", "all"] as const).map((status) => <button key={status} type="button" onClick={() => setDefectStatusFilter(status)} className={cn("rounded-full px-3 py-1.5 text-xs font-bold", defectStatusFilter === status ? "bg-[#14532D] text-white" : "bg-[#f5f1e7] text-[#6a7769]")}>{status.replaceAll("_", " ")}</button>)}</div><Button onClick={() => void shareDefectsReport()} disabled={generatingDefectsPdf} className="h-9 bg-[#e9682a] text-xs font-bold text-white disabled:opacity-60"><Share2 className="mr-2 h-3.5 w-3.5" />{generatingDefectsPdf ? "Building report…" : "Share defects PDF"}</Button></div><div className="divide-y divide-[#e5dfd3]">{filteredDefects.length === 0 ? <div className="p-6 text-sm text-[#6a7769]">No defects in this view.</div> : filteredDefects.map((defect) => <div key={defect.id} className="flex flex-wrap items-center gap-3 px-5 py-4"><span className={cn("rounded-full px-2 py-0.5 text-[10px] font-bold uppercase", defect.severity === "critical" || defect.severity === "high" ? "bg-[#fce8e3] text-[#b0402a]" : "bg-[#fff0dc] text-[#a54d1f]")}>{defect.severity}</span><div className="min-w-0 flex-1"><div className="text-sm font-bold">{defect.title}</div><div className="text-xs text-[#6a7769]">{defect.inspection?.truck?.fleet_number ?? "Unknown fleet"} · {defect.inspection?.driver_name ?? "Unknown driver"} · {defect.inspection?.inspection_date}</div>{defect.description && <div className="mt-1 rounded-lg bg-[#f5f1e7] px-2.5 py-1.5 text-xs italic text-[#4c5a4c]">"{defect.description}"</div>}</div><select value={defect.status} onChange={(e) => void updateDefectStatus(defect, e.target.value as AdminDefect["status"])} className="h-9 rounded-lg border border-[#d4cfc1] bg-white px-2 text-xs font-bold"><option value="open">Open</option><option value="in_progress">In progress</option><option value="resolved">Resolved</option><option value="waived">Waived</option></select></div>)}</div></div>}</section>
 <section className="paper-panel overflow-hidden rounded-2xl border border-[#d8d3c5]"><button type="button" onClick={() => setOpenAudit((c) => !c)} className="flex w-full items-center justify-between border-b border-[#dfd9ca] px-5 py-5 text-left"><div><p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#6a7769]">Accountability</p><h2 className="font-slab text-2xl font-bold">Audit log</h2></div><span className="rounded-full bg-[#e8eee5] px-3 py-1 text-xs font-bold">{auditEvents.length} events</span><span className="text-xs font-bold uppercase tracking-[0.12em] text-[#e9682a]">{openAudit ? "Close" : "Open"}</span></button>{openAudit && <div className="divide-y divide-[#e5dfd3]">{auditEvents.length === 0 ? <div className="p-6 text-sm text-[#6a7769]">No recorded admin actions yet.</div> : auditEvents.map((event) => <div key={event.id} className="flex items-center gap-3 px-5 py-3"><History className="h-4 w-4 text-[#6a7769]" /><div className="min-w-0 flex-1"><div className="text-sm font-semibold">{event.entity_type} · {event.action}</div><div className="text-xs text-[#7c887b]">{new Date(event.created_at).toLocaleString()}</div></div></div>)}</div>}</section>
 {selectedPhoto && <div className="fixed inset-0 z-50 grid place-items-center bg-[#1f3529]/75 p-4" onClick={() => setSelectedPhoto(null)}><div className="max-h-[90vh] max-w-3xl overflow-hidden rounded-2xl bg-[#fbf8ef] shadow-2xl" onClick={(e) => e.stopPropagation()}><div className="flex items-center justify-between p-3"><div className="text-xs font-bold">{selectedPhoto.truck} · {selectedPhoto.photo_type}</div><Button variant="ghost" onClick={() => setSelectedPhoto(null)}><X className="h-4 w-4" /></Button></div>{selectedPhoto.url && <img src={selectedPhoto.url} alt="Inspection evidence" className="max-h-[78vh] w-full object-contain" />}<div className="px-4 py-3 text-xs text-[#718070]">Captured by {selectedPhoto.driver} on {new Date(selectedPhoto.captured_at).toLocaleString()}</div></div></div>}
 <section className="paper-panel overflow-hidden rounded-2xl border border-[#d8d3c5]"><button type="button" onClick={() => setOpenAdmins(current => !current)} className="flex w-full items-center justify-between border-b border-[#dfd9ca] px-5 py-5 text-left"><div><p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#6a7769]">Access control</p><h2 className="font-slab text-2xl font-bold">Company admins</h2></div><span className="text-xs font-bold">{admins.length} admins</span><span className="text-xs font-bold uppercase tracking-[0.12em] text-[#e9682a]">{openAdmins ? "Close" : "Open"}</span></button>{openAdmins && <div className="divide-y divide-[#e5dfd3]">{admins.length === 0 ? <div className="px-5 py-4 text-sm text-[#7c887b]">No admins added for this company yet.</div> : admins.map((admin) => <div key={admin.id} className="flex items-center gap-3 px-5 py-4"><div className="grid h-9 w-9 place-items-center rounded-full bg-[#e9eee7] text-xs font-bold">{admin.full_name.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase()}</div><div className="min-w-0 flex-1"><div className="truncate text-sm font-bold">{admin.full_name}</div><div className="text-xs text-[#849083]">{admin.employee_number || "No employee number"}</div></div><Button variant="outline" onClick={() => void deleteAdmin(admin)} className="h-8 text-xs text-[#a44b2d]"><Trash2 className="h-3.5 w-3.5" /></Button></div>)}</div>}</section></div></main>;
