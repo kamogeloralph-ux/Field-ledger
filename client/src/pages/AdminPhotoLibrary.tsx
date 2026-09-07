@@ -14,6 +14,7 @@ type LibraryPhoto = {
   inspection_id: string;
   photo_type: string;
   storage_path: string;
+  storage_provider?: string;
   captured_at: string;
   url?: string;
   fleet_number: string;
@@ -54,15 +55,20 @@ export default function AdminPhotoLibrary({ selectedCompanyId, company, fleetOpt
     const matching = ((inspectionRows ?? []) as any[]).filter((row) => !fleet || row.truck?.fleet_number === fleet);
     const inspectionIds = matching.map((row) => row.id);
     if (inspectionIds.length === 0) { setPhotos([]); setSelectedIds(new Set()); setLoading(false); return; }
-    const { data: photoRows, error: photoError } = await client.from("inspection_photos").select("id, inspection_id, photo_type, storage_path, captured_at").in("inspection_id", inspectionIds).order("captured_at", { ascending: false });
+    const { data: photoRows, error: photoError } = await client.from("inspection_photos").select("id, inspection_id, photo_type, storage_path, storage_provider, captured_at").in("inspection_id", inspectionIds).order("captured_at", { ascending: false });
     if (photoError) { toast.error(photoError.message); setLoading(false); return; }
     const inspectionById = new Map(matching.map((row) => [row.id, row]));
     const withUrls = await Promise.all(((photoRows ?? []) as any[]).map(async (photo): Promise<LibraryPhoto> => {
       const inspection = inspectionById.get(photo.inspection_id);
-      const signed = await client.storage.from("inspection-photos").createSignedUrl(photo.storage_path, 3600);
+      // R2-backed photos (storage_provider === "r2") go through the get-r2-photo-url Edge
+      // Function instead of createSignedUrl, since that bucket isn't Supabase Storage —
+      // see supabase/functions/get-r2-photo-url/index.ts for the access-control story.
+      const signedUrl = photo.storage_provider === "r2"
+        ? (await client.functions.invoke("get-r2-photo-url", { body: { storagePath: photo.storage_path } })).data?.signedUrl
+        : (await client.storage.from("inspection-photos").createSignedUrl(photo.storage_path, 3600)).data?.signedUrl;
       return {
-        id: photo.id, inspection_id: photo.inspection_id, photo_type: photo.photo_type, storage_path: photo.storage_path, captured_at: photo.captured_at,
-        url: signed.data?.signedUrl,
+        id: photo.id, inspection_id: photo.inspection_id, photo_type: photo.photo_type, storage_path: photo.storage_path, storage_provider: photo.storage_provider, captured_at: photo.captured_at,
+        url: signedUrl,
         fleet_number: inspection?.truck?.fleet_number || "Unknown", registration: inspection?.truck?.registration || "",
         driver_name: inspection?.driver_name || null, inspection_date: inspection?.inspection_date || "",
       };
@@ -77,16 +83,25 @@ export default function AdminPhotoLibrary({ selectedCompanyId, company, fleetOpt
 
   const deletePhotos = async (targets: LibraryPhoto[]) => {
     if (!supabase || targets.length === 0) return;
-    if (!window.confirm(`Delete ${targets.length} photo${targets.length === 1 ? "" : "s"}? This cannot be undone.`)) return;
+    // R2 objects aren't reachable through supabase.storage — there's no delete Edge Function
+    // for that path yet. Deleting the DB row without deleting the R2 object would just leave
+    // an orphaned file paying rent forever, so R2-backed photos are excluded here rather than
+    // silently mis-deleted. Build get-r2-delete-object (mirroring the upload/read functions)
+    // before removing this guard.
+    const deletable = targets.filter((p) => p.storage_provider !== "r2");
+    const skipped = targets.length - deletable.length;
+    if (skipped > 0) toast.info(`${skipped} R2-stored photo${skipped === 1 ? "" : "s"} can't be deleted yet — that path isn't wired up.`);
+    if (deletable.length === 0) return;
+    if (!window.confirm(`Delete ${deletable.length} photo${deletable.length === 1 ? "" : "s"}? This cannot be undone.`)) return;
     setDeleting(true);
-    const { error: storageError } = await supabase.storage.from("inspection-photos").remove(targets.map((p) => p.storage_path));
+    const { error: storageError } = await supabase.storage.from("inspection-photos").remove(deletable.map((p) => p.storage_path));
     if (storageError) { toast.error(storageError.message); setDeleting(false); return; }
-    const { error: rowError } = await supabase.from("inspection_photos").delete().in("id", targets.map((p) => p.id));
+    const { error: rowError } = await supabase.from("inspection_photos").delete().in("id", deletable.map((p) => p.id));
     setDeleting(false);
     if (rowError) return toast.error(rowError.message);
-    await onAudit?.("photo", targets.map((p) => p.id).join(","), "deleted", { count: targets.length, fleet: targets[0]?.fleet_number });
-    toast.success(`${targets.length} photo${targets.length === 1 ? "" : "s"} deleted.`);
-    const deletedIds = new Set(targets.map((p) => p.id));
+    await onAudit?.("photo", deletable.map((p) => p.id).join(","), "deleted", { count: deletable.length, fleet: deletable[0]?.fleet_number });
+    toast.success(`${deletable.length} photo${deletable.length === 1 ? "" : "s"} deleted.`);
+    const deletedIds = new Set(deletable.map((p) => p.id));
     setPhotos((current) => current.filter((p) => !deletedIds.has(p.id)));
     setSelectedIds(new Set());
   };
