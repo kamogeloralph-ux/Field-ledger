@@ -1,4 +1,4 @@
-import { driverSupabase, uploadInspectionPhoto } from "./supabase";
+import { driverSupabase, uploadInspectionPhotoToR2 } from "./supabase";
 
 const DRAFT_STORE = "field-ledger-inspection-drafts";
 const DRAFT_KEY = "current";
@@ -68,11 +68,11 @@ async function submitOnline({ fullName, selectedFleet, openingKilometers, shift,
     if (defectError) throw defectError;
   }
   if (!(selfieFile instanceof File) || selfieFile.size === 0) throw new Error("The selfie image is missing. Please capture the selfie again.");
-  const selfieUpload = await uploadInspectionPhoto(selfieFile, inspectionId, "selfie", driverSupabase);
+  const selfieUpload = await uploadInspectionPhotoToR2(selfieFile, inspectionId, "selfie", driverSupabase);
   if (selfieUpload.error) throw selfieUpload.error;
-  const { error: selfieError } = await driverSupabase.from("inspection_photos").insert({ inspection_id: inspectionId, photo_type: "selfie", storage_path: selfieUpload.data.storagePath, captured_at: new Date().toISOString() });
+  const { error: selfieError } = await driverSupabase.from("inspection_photos").insert({ inspection_id: inspectionId, photo_type: "selfie", storage_path: selfieUpload.data.storagePath, storage_provider: "r2", captured_at: new Date().toISOString() });
   if (selfieError) throw selfieError;
-  for (const [photoType, file] of Object.entries(photoFiles ?? {})) { const upload = await uploadInspectionPhoto(file, inspectionId, photoType, driverSupabase); if (upload.error) throw upload.error; const { error } = await driverSupabase.from("inspection_photos").insert({ inspection_id: inspectionId, photo_type: photoType, storage_path: upload.data.storagePath, captured_at: new Date().toISOString() }); if (error) throw error; }
+  for (const [photoType, file] of Object.entries(photoFiles ?? {})) { const upload = await uploadInspectionPhotoToR2(file, inspectionId, photoType, driverSupabase); if (upload.error) throw upload.error; const { error } = await driverSupabase.from("inspection_photos").insert({ inspection_id: inspectionId, photo_type: photoType, storage_path: upload.data.storagePath, storage_provider: "r2", captured_at: new Date().toISOString() }); if (error) throw error; }
   return { queued: false, inspectionId };
 }
 export async function submitInspection({ allowQueue = true, ...draft }) { const queuedDraft = buildInspectionDraft({ ...draft, queued: true }); const offline = !driverSupabase || (typeof navigator !== "undefined" && !navigator.onLine); if (offline) { if (!allowQueue) throw new Error("The connection is still offline."); await saveInspectionDraft(queuedDraft); return { queued: true }; } try { return await submitOnline(draft); } catch (error) { if (allowQueue && retryableError(error)) { await saveInspectionDraft(queuedDraft); return { queued: true }; } throw new Error(readableError(error)); } }

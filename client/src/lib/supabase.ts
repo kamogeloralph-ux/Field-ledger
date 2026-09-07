@@ -74,3 +74,32 @@ export async function uploadInspectionPhoto(file: File, inspectionId: string, ph
 
   return { data: { storagePath }, error };
 }
+
+// Cloudflare R2 upload path. The object key is decided server-side by the
+// get-r2-upload-url Edge Function (not here) — see that function for why:
+// letting the client pick the key would let anyone with the public anon key
+// request a presigned URL for an arbitrary path in the bucket.
+export async function uploadInspectionPhotoToR2(file: File, inspectionId: string, photoType: string, client: SupabaseClient | null = supabase) {
+  if (!client) {
+    return { data: null, error: new Error("Supabase is not configured yet.") };
+  }
+
+  const contentType = file.type || "image/jpeg";
+  const { data: presign, error: presignError } = await client.functions.invoke("get-r2-upload-url", {
+    body: { inspectionId, photoType, contentType },
+  });
+  if (presignError || !presign?.uploadUrl) {
+    return { data: null, error: presignError instanceof Error ? presignError : new Error("Could not get an upload URL for this photo.") };
+  }
+
+  const uploadRes = await fetch(presign.uploadUrl, {
+    method: "PUT",
+    headers: { "Content-Type": contentType },
+    body: file,
+  });
+  if (!uploadRes.ok) {
+    return { data: null, error: new Error(`Photo upload to storage failed (${uploadRes.status}).`) };
+  }
+
+  return { data: { storagePath: presign.objectKey as string }, error: null };
+}
