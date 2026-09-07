@@ -123,6 +123,8 @@ export default function Home() {
   const [photoFiles, setPhotoFiles] = useState<Record<string, File>>({});
   const [photos, setPhotos] = useState<PhotoMap>({});
   const [checks, setChecks] = useState<Record<string, boolean | undefined>>({});
+  const [itemNotes, setItemNotes] = useState<Record<string, string>>({});
+  const setItemNote = (id: string, value: string) => setItemNotes((current) => ({ ...current, [id]: value }));
   const [notes, setNotes] = useState("");
   const [online, setOnline] = useState(typeof navigator === "undefined" ? true : navigator.onLine);
   const [saving, setSaving] = useState(false);
@@ -276,8 +278,6 @@ export default function Home() {
   const setCheck = (id: string, value: boolean) => setChecks((current) => ({ ...current, [id]: value }));
   const next = () => { if (step === "identity") { if (!fullName.trim() || fullName.trim().split(/\s+/).length < 2) return toast.error("Enter your full names and surnames."); if (!fleetNumber.trim()) return toast.error("Choose a fleet number."); if (fleetOptions.length > 0 && !fleetOptions.some((fleet) => fleet.fleet_number === fleetNumber.trim())) return toast.error("Choose a fleet number from the list."); if (openingKilometers === "" || Number(openingKilometers) < 0) return toast.error("Enter valid opening kilometers."); if (!shift) return toast.error("Select a shift."); if (!selfieFile) return toast.error("Take a selfie before continuing."); goToStep("checklist"); } else if (step === "checklist") { if (!checklistReady) return toast.error(`${allItems.length - answeredCount} checklist answers still need a response.`); goToStep("evidence"); } };
   const [confirmingReset, setConfirmingReset] = useState(false);
-  const [itemNotes, setItemNotes] = useState<Record<string, string>>({});
-  const setItemNote = (id: string, value: string) => setItemNotes((current) => ({ ...current, [id]: value }));
   const [hasQueuedDraft, setHasQueuedDraft] = useState(false);
   const [showSignOff, setShowSignOff] = useState(false);
   const [signOffInput, setSignOffInput] = useState("");
