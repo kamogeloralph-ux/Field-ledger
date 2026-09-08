@@ -240,9 +240,11 @@ function AdminWorkspace() {
         pdf.setFont("helvetica", "bold"); pdf.setFontSize(7.5); pdf.setTextColor(255, 255, 255);
         let x = marginX;
         columns.forEach((col) => {
+          const isCategoryCol = checklistCols.includes(col.key);
           const lines = pdf.splitTextToSize(col.key, col.w - 2).slice(0, 2);
           const startY = lines.length > 1 ? y + headerHeight / 2 - 1.5 : y + headerHeight - 4;
-          lines.forEach((line: string, i: number) => pdf.text(line, x + 1.5, startY + i * 3.6));
+          if (isCategoryCol) lines.forEach((line: string, i: number) => pdf.text(line, x + col.w / 2, startY + i * 3.6, { align: "center" }));
+          else lines.forEach((line: string, i: number) => pdf.text(line, x + 1.5, startY + i * 3.6));
           x += col.w;
         });
         pdf.setTextColor(20, 30, 25);
