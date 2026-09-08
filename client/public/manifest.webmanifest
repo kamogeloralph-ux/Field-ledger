@@ -1,7 +1,7 @@
 {
-  "name": "Rovaya Fleet Operations",
+  "name": "Rovaya Fleet Manager",
   "short_name": "Rovaya",
-  "description": "Rovaya keeps fleet operations, inspections, and evidence in one place.",
+  "description": "Rovaya keeps fleet management, inspections, and evidence in one place.",
   "id": "/",
   "start_url": "./",
   "scope": "./",
