@@ -37,9 +37,9 @@ export async function clearInspectionDraft() { const db = await openDraftDb().ca
 export function flattenChecklistItems(sections) { return sections.flatMap((section) => section.items); }
 function readableError(error) { if (error instanceof Error) return error.message; if (error && typeof error === "object") { const message = error.message || error.details || error.hint; if (message) return String(message); } return "Unable to submit this inspection."; }
 function retryableError(error) { if (typeof navigator !== "undefined" && !navigator.onLine) return true; const status = Number(error?.status || error?.statusCode || 0); if ([408, 429].includes(status) || status >= 500) return true; return error instanceof TypeError || /fetch|network|failed to fetch|timeout|temporar/i.test(readableError(error)); }
-export function buildInspectionDraft({ step, fullName, employeeNumber, selectedFleet, openingKilometers, shift, checks, itemNotes, notes, selfieFile, photoFiles, queued = false }) { return { step, fullName, employeeNumber, selectedFleet, openingKilometers, shift, checks, itemNotes, notes, selfieFile, photoFiles, queued, savedAt: new Date().toISOString() }; }
+export function buildInspectionDraft({ step, fullName, employeeNumber = "", selectedFleet, openingKilometers, shift, checks, itemNotes, notes, selfieFile, photoFiles, queued = false }) { return { step, fullName, employeeNumber, selectedFleet, openingKilometers, shift, checks, itemNotes, notes, selfieFile, photoFiles, queued, savedAt: new Date().toISOString() }; }
 
-async function submitOnline({ fullName, employeeNumber, selectedFleet, openingKilometers, shift, checks, itemNotes, notes, selfieFile, photoFiles, companyId, companyCode }) {
+async function submitOnline({ fullName, employeeNumber = "", selectedFleet, openingKilometers, shift, checks, itemNotes, notes, selfieFile, photoFiles, companyId, companyCode }) {
   if (!driverSupabase) throw new Error("Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.");
   if (!fullName?.trim()) throw new Error("Full names and surnames are required.");
   if (!companyId || !companyCode) throw new Error("No company selected. Please enter your company access code again.");
