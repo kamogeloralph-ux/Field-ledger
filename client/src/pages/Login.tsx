@@ -29,12 +29,12 @@ export default function Login({ onSuccess }: { onSuccess: () => void }) {
         <div className="flex items-center gap-4">
           <div>
             <h2 className="font-slab text-[1.875rem] font-semibold leading-none tracking-[-0.02em] inline-flex items-baseline"><img src={rMarkUrl} alt="R" className="h-[0.82em] w-auto mr-[0.03em]" />ovaya</h2>
-            <p className="mt-1 text-[0.72rem] font-bold uppercase tracking-[0.14em] text-[#6B7264]">Fleet Operations</p>
+            <p className="mt-1 text-[0.72rem] font-bold uppercase tracking-[0.14em] text-[#6B7264]">Fleet Manager</p>
           </div>
         </div>
         <p className="mt-10 text-[0.72rem] font-bold uppercase tracking-[0.14em] text-[#E8590C]">Admin sign in</p>
         <h1 className="mt-2 font-slab text-4xl font-bold leading-[1.15] tracking-[-0.02em] sm:text-[2.25rem]">Run the road.<br />Not the paperwork.</h1>
-        <p className="mt-3 text-base text-[#6B7264]">Manage trucks, companies, defects, and daily fleet records.</p>
+        <p className="mt-3 text-base text-[#6B7264]">Manage vehicles, companies, defects, and daily fleet records.</p>
         <form onSubmit={submit} className="mt-8 flex flex-col gap-5">
           <label className="block">
             <span className="text-[0.72rem] font-bold uppercase tracking-[0.14em] text-[#6B7264]">Work email</span>
