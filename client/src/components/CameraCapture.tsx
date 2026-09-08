@@ -121,8 +121,16 @@ export default function CameraCapture({ open, facingMode, title, onCapture, onCa
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-black" role="dialog" aria-modal="true" aria-label={`${title} camera`}>
-      <div className="flex items-center justify-between px-4 py-3 text-white">
+    <div className="fixed inset-0 z-50 bg-black" role="dialog" aria-modal="true" aria-label={`${title} camera`}>
+      <div className="absolute inset-0">
+        <video ref={videoRef} autoPlay playsInline muted className="h-full w-full object-cover" />
+        {starting && (
+          <div className="absolute inset-0 grid place-items-center bg-black/60 text-sm font-semibold text-white">
+            Starting camera…
+          </div>
+        )}
+      </div>
+      <div className="absolute inset-x-0 top-0 flex items-center justify-between bg-gradient-to-b from-black/70 to-transparent px-4 pb-8 pt-4 text-white">
         <span className="text-sm font-bold uppercase tracking-wide">{title}</span>
         <button
           type="button"
@@ -133,15 +141,7 @@ export default function CameraCapture({ open, facingMode, title, onCapture, onCa
           <X className="h-5 w-5" />
         </button>
       </div>
-      <div className="relative flex-1 overflow-hidden bg-black">
-        <video ref={videoRef} autoPlay playsInline muted className="h-full w-full object-cover" />
-        {starting && (
-          <div className="absolute inset-0 grid place-items-center bg-black/60 text-sm font-semibold text-white">
-            Starting camera…
-          </div>
-        )}
-      </div>
-      <div className="flex items-center justify-center gap-10 bg-black px-4 py-6">
+      <div className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-10 bg-gradient-to-t from-black/80 to-transparent px-4 pb-6 pt-10">
         <button
           type="button"
           onClick={flip}
