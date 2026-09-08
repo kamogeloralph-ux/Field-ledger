@@ -37,9 +37,9 @@ export async function clearInspectionDraft() { const db = await openDraftDb().ca
 export function flattenChecklistItems(sections) { return sections.flatMap((section) => section.items); }
 function readableError(error) { if (error instanceof Error) return error.message; if (error && typeof error === "object") { const message = error.message || error.details || error.hint; if (message) return String(message); } return "Unable to submit this inspection."; }
 function retryableError(error) { if (typeof navigator !== "undefined" && !navigator.onLine) return true; const status = Number(error?.status || error?.statusCode || 0); if ([408, 429].includes(status) || status >= 500) return true; return error instanceof TypeError || /fetch|network|failed to fetch|timeout|temporar/i.test(readableError(error)); }
-export function buildInspectionDraft({ step, fullName, selectedFleet, openingKilometers, shift, checks, itemNotes, notes, selfieFile, photoFiles, queued = false }) { return { step, fullName, selectedFleet, openingKilometers, shift, checks, itemNotes, notes, selfieFile, photoFiles, queued, savedAt: new Date().toISOString() }; }
+export function buildInspectionDraft({ step, fullName, employeeNumber, selectedFleet, openingKilometers, shift, checks, itemNotes, notes, selfieFile, photoFiles, queued = false }) { return { step, fullName, employeeNumber, selectedFleet, openingKilometers, shift, checks, itemNotes, notes, selfieFile, photoFiles, queued, savedAt: new Date().toISOString() }; }
 
-async function submitOnline({ fullName, selectedFleet, openingKilometers, shift, checks, itemNotes, notes, selfieFile, photoFiles, companyId, companyCode }) {
+async function submitOnline({ fullName, employeeNumber, selectedFleet, openingKilometers, shift, checks, itemNotes, notes, selfieFile, photoFiles, companyId, companyCode }) {
   if (!driverSupabase) throw new Error("Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.");
   if (!fullName?.trim()) throw new Error("Full names and surnames are required.");
   if (!companyId || !companyCode) throw new Error("No company selected. Please enter your company access code again.");
@@ -74,7 +74,7 @@ async function submitOnline({ fullName, selectedFleet, openingKilometers, shift,
     if (upload.error) throw upload.error;
     uploadedPhotos.push({ inspection_id: inspectionId, photo_type: photoType, storage_path: upload.data.storagePath, storage_provider: "r2", captured_at: new Date().toISOString() });
   }
-  const payload = { id: inspectionId, driver_id: null, driver_name: fullName.trim(), truck_id: truck.id, opening_kilometers: openingKilometers === "" || openingKilometers == null ? null : Number(openingKilometers), shift, checklist_template_id: template.id, inspection_date: inspectionDate, started_at: new Date().toISOString(), submitted_at: new Date().toISOString(), status: "completed", notes: notes?.trim() || null, signature_name: fullName.trim(), company_id: companyId, company_access_code: companyCode };
+  const payload = { id: inspectionId, driver_id: null, driver_name: fullName.trim(), employee_number: employeeNumber?.trim() || null, truck_id: truck.id, opening_kilometers: openingKilometers === "" || openingKilometers == null ? null : Number(openingKilometers), shift, checklist_template_id: template.id, inspection_date: inspectionDate, started_at: new Date().toISOString(), submitted_at: new Date().toISOString(), status: "completed", notes: notes?.trim() || null, signature_name: fullName.trim(), company_id: companyId, company_access_code: companyCode };
   const { error: inspectionError } = await driverSupabase.from("daily_inspections").insert(payload);
   if (inspectionError) throw inspectionError;
   const answers = dbItems.map((item) => ({ inspection_id: inspectionId, checklist_item_id: item.id, result: checks[item.id] ? "pass" : "fail" }));
