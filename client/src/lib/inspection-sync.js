@@ -53,8 +53,27 @@ async function submitOnline({ fullName, selectedFleet, openingKilometers, shift,
   if (itemError) throw itemError;
   if (!dbItems || dbItems.length === 0) throw new Error("This company's checklist has no items configured.");
   if (dbItems.some((item) => checks[item.id] === undefined)) throw new Error("The checklist has changed since you started. Please refresh and try again.");
+  if (!(selfieFile instanceof File) || selfieFile.size === 0) throw new Error("The selfie image is missing. Please capture the selfie again.");
   const inspectionDate = new Date().toISOString().slice(0, 10);
   const inspectionId = crypto.randomUUID();
+  // Upload every photo BEFORE writing anything to the database. Previously the
+  // daily_inspections row was inserted (status: "completed") first and photos were
+  // uploaded afterward — so a failed or interrupted upload left a permanent
+  // "completed" inspection record with missing evidence, since there was nothing to
+  // roll it back. Uploading first means a failure here throws before any row exists,
+  // so a retry (via the offline queue) starts clean instead of producing a duplicate,
+  // partially-evidenced record. The remaining, much smaller risk — an upload
+  // succeeding but a later DB write failing — only leaves unreferenced files in R2,
+  // which is far safer than a false "completed" compliance record.
+  const uploadedPhotos = [];
+  const selfieUpload = await uploadInspectionPhotoToR2(selfieFile, inspectionId, "selfie", driverSupabase);
+  if (selfieUpload.error) throw selfieUpload.error;
+  uploadedPhotos.push({ inspection_id: inspectionId, photo_type: "selfie", storage_path: selfieUpload.data.storagePath, storage_provider: "r2", captured_at: new Date().toISOString() });
+  for (const [photoType, file] of Object.entries(photoFiles ?? {})) {
+    const upload = await uploadInspectionPhotoToR2(file, inspectionId, photoType, driverSupabase);
+    if (upload.error) throw upload.error;
+    uploadedPhotos.push({ inspection_id: inspectionId, photo_type: photoType, storage_path: upload.data.storagePath, storage_provider: "r2", captured_at: new Date().toISOString() });
+  }
   const payload = { id: inspectionId, driver_id: null, driver_name: fullName.trim(), truck_id: truck.id, opening_kilometers: openingKilometers === "" || openingKilometers == null ? null : Number(openingKilometers), shift, checklist_template_id: template.id, inspection_date: inspectionDate, started_at: new Date().toISOString(), submitted_at: new Date().toISOString(), status: "completed", notes: notes?.trim() || null, signature_name: fullName.trim(), company_id: companyId, company_access_code: companyCode };
   const { error: inspectionError } = await driverSupabase.from("daily_inspections").insert(payload);
   if (inspectionError) throw inspectionError;
@@ -67,12 +86,8 @@ async function submitOnline({ fullName, selectedFleet, openingKilometers, shift,
     const { error: defectError } = await driverSupabase.from("defects").insert(defectRows);
     if (defectError) throw defectError;
   }
-  if (!(selfieFile instanceof File) || selfieFile.size === 0) throw new Error("The selfie image is missing. Please capture the selfie again.");
-  const selfieUpload = await uploadInspectionPhotoToR2(selfieFile, inspectionId, "selfie", driverSupabase);
-  if (selfieUpload.error) throw selfieUpload.error;
-  const { error: selfieError } = await driverSupabase.from("inspection_photos").insert({ inspection_id: inspectionId, photo_type: "selfie", storage_path: selfieUpload.data.storagePath, storage_provider: "r2", captured_at: new Date().toISOString() });
-  if (selfieError) throw selfieError;
-  for (const [photoType, file] of Object.entries(photoFiles ?? {})) { const upload = await uploadInspectionPhotoToR2(file, inspectionId, photoType, driverSupabase); if (upload.error) throw upload.error; const { error } = await driverSupabase.from("inspection_photos").insert({ inspection_id: inspectionId, photo_type: photoType, storage_path: upload.data.storagePath, storage_provider: "r2", captured_at: new Date().toISOString() }); if (error) throw error; }
+  const { error: photosError } = await driverSupabase.from("inspection_photos").insert(uploadedPhotos);
+  if (photosError) throw photosError;
   return { queued: false, inspectionId };
 }
 export async function submitInspection({ allowQueue = true, ...draft }) { const queuedDraft = buildInspectionDraft({ ...draft, queued: true }); const offline = !driverSupabase || (typeof navigator !== "undefined" && !navigator.onLine); if (offline) { if (!allowQueue) throw new Error("The connection is still offline."); await saveInspectionDraft(queuedDraft); return { queued: true }; } try { return await submitOnline(draft); } catch (error) { if (allowQueue && retryableError(error)) { await saveInspectionDraft(queuedDraft); return { queued: true }; } throw new Error(readableError(error)); } }
