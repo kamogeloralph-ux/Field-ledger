@@ -214,6 +214,7 @@ function AdminWorkspace() {
         { key: "Fleet No.", w: 20 },
         { key: "Registration", w: 20 },
         { key: "Driver", w: 26 },
+        { key: "Employee #", w: 18 },
         { key: "Shift", w: 14 },
         { key: "Open KM", w: 16 },
       ];
@@ -291,8 +292,9 @@ function AdminWorkspace() {
         cell(formatFleetNumber(row.truck?.fleet_number || ""), fixedCols[1].w, { bold: true });
         cell(row.truck?.registration || "—", fixedCols[2].w);
         cell(row.driver_name || "Unknown", fixedCols[3].w);
-        cell(shiftShort(row.shift), fixedCols[4].w);
-        cell(row.opening_kilometers != null ? String(row.opening_kilometers) : "—", fixedCols[5].w);
+        cell(row.employee_number || "—", fixedCols[4].w);
+        cell(shiftShort(row.shift), fixedCols[5].w);
+        cell(row.opening_kilometers != null ? String(row.opening_kilometers) : "—", fixedCols[6].w);
 
         categoryOrder.forEach((category) => {
           const pass = categoryResult(answers, category);
