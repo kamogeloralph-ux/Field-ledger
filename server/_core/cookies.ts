@@ -21,6 +21,24 @@ function isSecureRequest(req: Request) {
   return protoList.some(proto => proto.trim().toLowerCase() === "https");
 }
 
+/**
+ * Same logic as getSessionCookieOptions, adapted for the Cloudflare Worker's
+ * Fetch API Request (no Express `protocol`/`hostname` helpers there).
+ * Returns a ready-to-use Set-Cookie attribute string rather than an options
+ * object, since the Worker sets cookies via a raw header, not `res.cookie()`.
+ */
+export function getWorkerSessionCookieAttributes(req: globalThis.Request): string {
+  const url = new URL(req.url);
+  const forwardedProto = req.headers.get("x-forwarded-proto");
+  const isSecure =
+    url.protocol === "https:" ||
+    (forwardedProto ?? "")
+      .split(",")
+      .some(proto => proto.trim().toLowerCase() === "https");
+
+  return `HttpOnly; Path=/; SameSite=None${isSecure ? "; Secure" : ""}`;
+}
+
 export function getSessionCookieOptions(
   req: Request
 ): Pick<CookieOptions, "domain" | "httpOnly" | "path" | "sameSite" | "secure"> {

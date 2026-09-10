@@ -3,12 +3,18 @@ import type { User } from "../../drizzle/schema";
 import type { Env } from "../../src/worker";
 import { sdk } from "./sdk";
 
+// `platform` discriminates this from the Express `TrpcContext` (see ./context.ts).
+// `responseHeaders` lets procedures set headers (e.g. Set-Cookie) on the fetch
+// Response, since the Fetch API has no mutable `res` object like Express does.
+// Read it back in src/worker.ts's `responseMeta` to attach it to the reply.
 export type WorkerTrpcContext = {
+  platform: "worker";
   req: Request;
   env: Env;
   user: User | null;
   r2: R2Bucket;
   kv: KVNamespace;
+  responseHeaders: Headers;
 };
 
 /**
@@ -31,10 +37,12 @@ export async function createWorkerContext(
   }
 
   return {
+    platform: "worker",
     req: request,
     env,
     user,
     r2: env.R2_BUCKET,
     kv: env.KV_CACHE,
+    responseHeaders: new Headers(),
   };
 }

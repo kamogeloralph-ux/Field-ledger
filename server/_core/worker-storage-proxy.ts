@@ -1,8 +1,13 @@
 import type { Env } from "../../src/worker";
 
 /**
- * Handle storage proxy requests for R2
- * Redirects /manus-storage/{key} to R2 signed URLs
+ * Handle storage proxy requests for R2.
+ * Streams /manus-storage/{key} straight from the R2 binding.
+ *
+ * (Previously this redirected to `your-r2-custom-domain`/`your-r2-bucket-url`,
+ * which were unset placeholders — the bucket has no public URL configured,
+ * so every request 404'd/failed DNS. Serving the object body directly
+ * through the Worker avoids needing a public bucket or custom domain at all.)
  */
 export async function handleStorageProxy(
   request: Request,
@@ -19,8 +24,7 @@ export async function handleStorageProxy(
   }
 
   try {
-    // Get the object from R2 to check if it exists
-    const object = await env.R2_BUCKET.head(key);
+    const object = await env.R2_BUCKET.get(key);
     if (!object) {
       return new Response(
         JSON.stringify({ error: "Object not found" }),
@@ -28,17 +32,12 @@ export async function handleStorageProxy(
       );
     }
 
-    // Redirect to the R2 object
-    // R2 URLs are publicly accessible if bucket is configured correctly
-    const r2Url = `https://${env.ENVIRONMENT === "production" ? "your-r2-custom-domain" : "your-r2-bucket-url"}/${key}`;
-    
-    return new Response(null, {
-      status: 307,
-      headers: {
-        Location: r2Url,
-        "Cache-Control": "public, max-age=3600",
-      },
-    });
+    const headers = new Headers();
+    object.writeHttpMetadata(headers);
+    headers.set("etag", object.httpEtag);
+    headers.set("Cache-Control", "public, max-age=3600");
+
+    return new Response(object.body, { headers });
   } catch (error) {
     console.error("[StorageProxy] Error:", error);
     return new Response(

@@ -1,9 +1,16 @@
 import { NOT_ADMIN_ERR_MSG, UNAUTHED_ERR_MSG } from '@shared/const';
 import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
-import type { TrpcContext } from "./context";
+import type { TrpcContext as ExpressTrpcContext } from "./context";
+import type { WorkerTrpcContext } from "./worker-context";
 
-const t = initTRPC.context<TrpcContext>().create({
+// The same appRouter is served by both the Express server (server/_core/index.ts)
+// and the Cloudflare Worker (src/worker.ts), which build different context shapes.
+// Narrow on `ctx.platform` in procedures that need platform-specific fields
+// (e.g. auth.logout in ./routers.ts).
+export type AppContext = ExpressTrpcContext | WorkerTrpcContext;
+
+const t = initTRPC.context<AppContext>().create({
   transformer: superjson,
 });
 

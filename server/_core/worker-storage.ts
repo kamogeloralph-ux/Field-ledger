@@ -36,29 +36,27 @@ export async function storageGetWorker(
   return { key, url: `/manus-storage/${key}` };
 }
 
+/**
+ * Cloudflare's R2Bucket binding has no `createSignedUrl` method (that's an
+ * S3-only concept; R2's S3-compatible signing needs the separate REST API
+ * with access keys, not the Worker binding). Since /manus-storage/:key
+ * already proxies GET requests straight through the Worker's binding (see
+ * handleStorageProxy in worker-storage-proxy.ts), we reuse that same URL
+ * here instead of a real signed URL — access control happens in the proxy
+ * route itself rather than via URL expiry.
+ */
 export async function storageGetSignedUrlWorker(
   relKey: string,
   r2: R2Bucket
 ): Promise<string> {
   const key = normalizeKey(relKey);
 
-  try {
-    // Check if object exists
-    const object = await r2.head(key);
-    if (!object) {
-      throw new Error("Object not found in R2");
-    }
-
-    // Create a signed URL valid for 1 hour
-    const signedUrl = await r2.createSignedUrl(key, 3600, {
-      method: "GET",
-    });
-
-    return signedUrl;
-  } catch (error) {
-    console.error("[Storage] Failed to create signed URL:", error);
-    throw error;
+  const object = await r2.head(key);
+  if (!object) {
+    throw new Error("Object not found in R2");
   }
+
+  return `/manus-storage/${key}`;
 }
 
 function normalizeKey(relKey: string): string {
