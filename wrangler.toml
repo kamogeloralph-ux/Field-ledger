@@ -1,18 +1,10 @@
 name = "rovaya-api"
-type = "service-worker"
 main = "src/worker.ts"
 compatibility_date = "2024-12-01"
 workers_dev = true
 
-# Environment variables - define in Cloudflare dashboard or via wrangler secret
-[env.production]
-routes = [
-  { pattern = "api.yourdomain.com/*", zone_name = "yourdomain.com" }
-]
-vars = { ENVIRONMENT = "production" }
-
-[env.development]
-vars = { ENVIRONMENT = "development" }
+[vars]
+ENVIRONMENT = "development"
 
 # R2 Bucket Binding
 [[r2_buckets]]
@@ -20,22 +12,18 @@ binding = "R2_BUCKET"
 bucket_name = "fleet-inspection-photos"
 jurisdiction = "eu"
 
-# KV Namespace for caching (optional)
+# KV Namespace for caching
 [[kv_namespaces]]
 binding = "KV_CACHE"
-preview_id = "kv-cache-preview"
-id = "your-kv-namespace-id"
+id = "75d081729b674717944940f65bb7c7a0"
 
-# Build configuration
-[build]
-command = "pnpm install && pnpm build:worker"
-cwd = "."
-watch_paths = ["src/**/*.ts", "server/**/*.ts", "shared/**/*.ts"]
-
-[build.upload]
-format = "modules"
-main = "./dist/worker.js"
-
-# Observability
 [observability]
 enabled = true
+
+# Uncomment once this API has a real domain routed through Cloudflare,
+# and deploy with `wrangler deploy --env production`:
+# [env.production]
+# vars = { ENVIRONMENT = "production" }
+# routes = [
+#   { pattern = "api.yourdomain.com/*", zone_name = "yourdomain.com" }
+# ]
