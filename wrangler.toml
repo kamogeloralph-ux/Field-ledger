@@ -17,7 +17,7 @@ vars = { ENVIRONMENT = "development" }
 # R2 Bucket Binding
 [[r2_buckets]]
 binding = "R2_BUCKET"
-bucket_name = "rovaya-photos"
+bucket_name = "fleet-inspection-photos"
 jurisdiction = "eu"
 
 # KV Namespace for caching (optional)
