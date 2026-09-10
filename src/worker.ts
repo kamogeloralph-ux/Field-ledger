@@ -26,12 +26,24 @@ export default {
 
     // Handle tRPC API requests
     if (url.pathname.startsWith("/api/trpc")) {
+      // Captured by createContext, then read back in responseMeta so
+      // procedures (e.g. auth.logout) can set response headers like
+      // Set-Cookie, which the Fetch API has no other way to attach.
+      let workerCtx: Awaited<ReturnType<typeof createWorkerContext>> | undefined;
+
       return fetchRequestHandler({
         endpoint: "/api/trpc",
         req: request,
         router: appRouter,
         createContext: async () => {
-          return createWorkerContext(request, env);
+          workerCtx = await createWorkerContext(request, env);
+          return workerCtx;
+        },
+        responseMeta: () => {
+          if (!workerCtx || [...workerCtx.responseHeaders.keys()].length === 0) {
+            return {};
+          }
+          return { headers: workerCtx.responseHeaders };
         },
         onError:
           env.ENVIRONMENT === "development"
