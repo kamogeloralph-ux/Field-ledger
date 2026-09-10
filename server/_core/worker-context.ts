@@ -1,3 +1,4 @@
+/// <reference types="@cloudflare/workers-types" />
 import type { User } from "../../drizzle/schema";
 import type { Env } from "../../src/worker";
 import { sdk } from "./sdk";
