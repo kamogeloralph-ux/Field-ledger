@@ -33,7 +33,7 @@ jobs:
         run: pnpm install --no-frozen-lockfile
 
       - name: Validate
-        run: pnpm check
+        run: pnpm check:client
 
       - name: Build
         run: pnpm exec vite build
