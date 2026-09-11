@@ -1,5 +1,5 @@
 import { COOKIE_NAME } from "@shared/const";
-import { getSessionCookieOptions } from "./_core/cookies";
+import { getSessionCookieOptions, getWorkerSessionCookieAttributes } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
 
@@ -9,8 +9,16 @@ export const appRouter = router({
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
     logout: publicProcedure.mutation(({ ctx }) => {
-      const cookieOptions = getSessionCookieOptions(ctx.req);
-      ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
+      if (ctx.platform === "express") {
+        const cookieOptions = getSessionCookieOptions(ctx.req);
+        ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
+      } else {
+        // Fetch adapter has no res.clearCookie; set Set-Cookie on the
+        // response via ctx.responseHeaders, read back in src/worker.ts's
+        // responseMeta.
+        const attrs = getWorkerSessionCookieAttributes(ctx.req);
+        ctx.responseHeaders.append("Set-Cookie", `${COOKIE_NAME}=; Max-Age=0; ${attrs}`);
+      }
       return {
         success: true,
       } as const;
