@@ -1,6 +1,6 @@
 import type { KVNamespace, R2Bucket } from "@cloudflare/workers-types";
 import type { User } from "../../drizzle/schema";
-import type { Env } from "../../src/worker";
+import type { Env } from "./worker-env";
 import { sdk } from "./sdk";
 
 // `platform` discriminates this from the Express `TrpcContext` (see ./context.ts).

@@ -1,4 +1,5 @@
-import type { Env } from "../../src/worker";
+import type { Headers as CfHeaders } from "@cloudflare/workers-types";
+import type { Env } from "./worker-env";
 
 /**
  * Handle storage proxy requests for R2.
@@ -33,11 +34,18 @@ export async function handleStorageProxy(
     }
 
     const headers = new Headers();
-    object.writeHttpMetadata(headers);
+    // R2ObjectBody's methods are typed against @cloudflare/workers-types'
+    // own Headers/ReadableStream declarations, which differ structurally
+    // from lib.dom's (same objects at runtime in the real Workers
+    // environment — this is a declaration-file mismatch only, since we use
+    // scoped type imports here rather than the global ambient override
+    // that would otherwise clash with other files needing lib.dom, e.g.
+    // client code).
+    object.writeHttpMetadata(headers as unknown as CfHeaders);
     headers.set("etag", object.httpEtag);
     headers.set("Cache-Control", "public, max-age=3600");
 
-    return new Response(object.body, { headers });
+    return new Response(object.body as unknown as BodyInit, { headers });
   } catch (error) {
     console.error("[StorageProxy] Error:", error);
     return new Response(
