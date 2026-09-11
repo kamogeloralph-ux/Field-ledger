@@ -1,0 +1,40 @@
+name: Deploy Cloudflare Worker
+
+# Requires two repo secrets (Settings -> Secrets and variables -> Actions):
+#   CLOUDFLARE_API_TOKEN  - a Cloudflare API token with Workers Scripts:Edit
+#   CLOUDFLARE_ACCOUNT_ID - your Cloudflare account ID
+# Also requires the Worker's own runtime secrets to already be set via
+# `wrangler secret put <NAME>` (JWT_SECRET, SUPABASE_URL, etc.) — this
+# workflow deploys code, it doesn't set secrets.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  check:
+    uses: ./.github/workflows/check.yml
+
+  deploy:
+    needs: check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Deploy Worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

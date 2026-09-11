@@ -1,0 +1,33 @@
+name: Full Type Check
+
+# Runs the whole monorepo's TypeScript check (client + server + Cloudflare
+# Worker), unlike deploy-pages.yml's `check:client`, which only checks the
+# frontend so backend/Worker issues never block a Pages deploy. This is
+# where those backend issues actually get caught.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Full type check
+        run: pnpm check
