@@ -1,5 +1,5 @@
 // Field Ledger direction: offline resilience supports the field workflow without hiding the sync state.
-const CACHE_NAME = "field-ledger-shell-v1";
+const CACHE_NAME = "field-ledger-shell-v2";
 
 self.addEventListener("install", (event) => {
   const scope = self.registration.scope;
