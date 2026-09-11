@@ -3,8 +3,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useFleetAuth } from "@/contexts/FleetAuthContext";
-
-const rMarkUrl = `${import.meta.env.BASE_URL}rovana-r-mark.png`;
+import { RovayaBrand } from "@/components/RovayaBrand";
 
 export default function Login({ onSuccess }: { onSuccess: () => void }) {
   const { signIn, loading, error } = useFleetAuth();
@@ -26,12 +25,7 @@ export default function Login({ onSuccess }: { onSuccess: () => void }) {
   return (
     <main className="grid min-h-[100dvh] place-items-center bg-[#FAF6EF] px-4 py-8 text-[#14532D] sm:px-6">
       <section className="w-full max-w-md rounded-[2rem] border border-[#E7DFD0] bg-white px-6 py-9 shadow-[0_24px_60px_-24px_rgba(20,83,45,0.25)] sm:px-10 sm:py-12">
-        <div className="flex items-center gap-4">
-          <div>
-            <h2 className="font-slab text-[1.875rem] font-semibold leading-none tracking-[-0.02em] inline-flex items-baseline"><img src={rMarkUrl} alt="R" className="h-[0.82em] w-auto mr-[0.03em]" />ovaya</h2>
-            <p className="mt-1 text-[0.72rem] font-bold uppercase tracking-[0.14em] text-[#6B7264]">Fleet Manager</p>
-          </div>
-        </div>
+        <RovayaBrand imageClassName="w-[min(18rem,82vw)]" />
         <p className="mt-10 text-[0.72rem] font-bold uppercase tracking-[0.14em] text-[#E8590C]">Admin sign in</p>
         <h1 className="mt-2 font-slab text-4xl font-bold leading-[1.15] tracking-[-0.02em] sm:text-[2.25rem]">Run the road.<br />Not the paperwork.</h1>
         <p className="mt-3 text-base text-[#6B7264]">Manage vehicles, companies, defects, and daily fleet records.</p>
