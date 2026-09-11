@@ -210,27 +210,27 @@ function AdminWorkspace() {
       const checklistCols = categoryOrder;
       const checklistCount = categoryOrder.length;
       const fixedCols = [
-        { key: "#", w: 8 },
-        { key: "Fleet No.", w: 20 },
-        { key: "Registration", w: 20 },
-        { key: "Driver", w: 26 },
-        { key: "Employee #", w: 18 },
-        { key: "Shift", w: 14 },
-        { key: "Open KM", w: 16 },
+        { key: "#", w: 7 },
+        { key: "Fleet No.", w: 18 },
+        { key: "Registration", w: 19 },
+        { key: "Driver", w: 24 },
+        { key: "Employee #", w: 16 },
+        { key: "Shift", w: 12 },
+        { key: "Open KM", w: 14 },
       ];
       const tailCols = [
-        { key: "Photos", w: 14 },
+        { key: "Photos", w: 12 },
         { key: "Notes", w: 0 }, // filled below with remaining space
       ];
       const usableWidth = pageWidth - marginX * 2;
-      const checklistColWidth = checklistCount > 0 ? 26 : 0;
+      const checklistColWidth = checklistCount > 0 ? 20 : 0;
       const fixedWidth = fixedCols.reduce((sum, c) => sum + c.w, 0);
       const checklistWidth = checklistColWidth * checklistCount;
       const photosWidth = tailCols[0].w;
-      tailCols[1].w = Math.max(30, usableWidth - fixedWidth - checklistWidth - photosWidth);
+      const minimumNotesWidth = 48;
+      tailCols[1].w = Math.max(minimumNotesWidth, usableWidth - fixedWidth - checklistWidth - photosWidth);
       const columns = [...fixedCols, ...checklistCols.map((label) => ({ key: label, w: checklistColWidth })), ...tailCols];
 
-      const rowHeight = 9;
       const headerHeight = 12;
       let y = 0;
 
@@ -275,6 +275,8 @@ function AdminWorkspace() {
       drawTableHeader();
 
       filteredReports.forEach((row, index) => {
+        const noteLines = pdf.splitTextToSize(row.notes || "—", tailCols[1].w - 3).slice(0, 3) as string[];
+        const rowHeight = Math.max(9, noteLines.length * 3.5 + 4);
         ensureSpace(rowHeight);
         const answers = sortedAnswers(row.answers ?? []);
         const photos = sortedPhotos(row.photos ?? []);
@@ -312,7 +314,9 @@ function AdminWorkspace() {
           x += checklistColWidth;
         });
         cell(`${photos.length}/7`, tailCols[0].w);
-        cell(row.notes ? row.notes : "—", tailCols[1].w);
+        pdf.setFont("helvetica", "normal");
+        noteLines.forEach((line, lineIndex) => pdf.text(line, x + 1.5, y + 4 + lineIndex * 3.5));
+        x += tailCols[1].w;
 
         pdf.setDrawColor(225, 220, 205);
         pdf.line(marginX, y + rowHeight, marginX + usableWidth, y + rowHeight);
