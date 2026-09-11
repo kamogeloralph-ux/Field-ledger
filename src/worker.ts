@@ -1,21 +1,11 @@
-import type { ExecutionContext, KVNamespace, R2Bucket } from "@cloudflare/workers-types";
+import type { ExecutionContext, ExportedHandler } from "@cloudflare/workers-types";
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { appRouter } from "../server/routers";
 import { createWorkerContext } from "../server/_core/worker-context";
 import { handleStorageProxy } from "../server/_core/worker-storage-proxy";
+import type { Env } from "../server/_core/worker-env";
 
-export interface Env {
-  SUPABASE_URL: string;
-  SUPABASE_ANON_KEY: string;
-  SUPABASE_SERVICE_ROLE_KEY: string;
-  DATABASE_URL: string;
-  JWT_SECRET: string;
-  OAUTH_SERVER_URL: string;
-  OWNER_OPEN_ID: string;
-  R2_BUCKET: R2Bucket;
-  KV_CACHE: KVNamespace;
-  ENVIRONMENT: "production" | "development";
-}
+export type { Env };
 
 export default {
   async fetch(
@@ -71,7 +61,12 @@ export default {
     // Default 404
     return new Response("Not Found", { status: 404 });
   },
-} satisfies ExportedHandler<Env>;
+// `satisfies ExportedHandler<Env>` would fail here: ExportedHandler's own
+// signature expects @cloudflare/workers-types' Request/Response, but this
+// file deliberately uses lib.dom's (same objects at the real Workers
+// runtime — see the comment in worker-storage-proxy.ts for why we use
+// scoped imports instead of the global ambient override).
+} as unknown as ExportedHandler<Env>;
 
 /**
  * Handle OAuth callback from OAuth provider
