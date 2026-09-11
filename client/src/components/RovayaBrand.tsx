@@ -5,9 +5,9 @@ export function RovayaBrand({ className, imageClassName, subtitle = "Fleet Manag
   return (
     <div className={cn("flex flex-col items-center justify-center text-center", className)}>
       <img
-        src={`${import.meta.env.BASE_URL}rovaya-wordmark-logo.png`}
+        src={`${import.meta.env.BASE_URL}rovaya-wordmark-transparent.png`}
         alt="Rovaya"
-        className={cn("h-auto w-[min(15rem,72vw)] object-contain", imageClassName)}
+        className={cn("h-auto w-[min(14rem,72vw)] object-contain", imageClassName)}
       />
       {subtitle ? <span className="mt-1 text-[0.62rem] font-bold uppercase tracking-[0.22em] text-[#6b7264]">{subtitle}</span> : null}
     </div>
