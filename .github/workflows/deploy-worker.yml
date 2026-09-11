@@ -33,6 +33,13 @@ jobs:
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
 
+      - name: Configure R2 browser CORS
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: r2 bucket cors set fleet-inspection-photos --file r2-cors.json
+
       - name: Deploy Worker
         uses: cloudflare/wrangler-action@v3
         with:
