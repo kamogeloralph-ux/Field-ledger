@@ -257,20 +257,21 @@ function AdminWorkspace() {
         if (y + needed > bottomLimit) { pdf.addPage(); y = 20; drawTableHeader(); }
       };
 
-      // Cover header, same shape as the wash-bay report's summary block.
+      // Cover header: centered Rovaya wordmark with the report title directly beneath it.
       const logoImg = await loadLogoImage();
-      let titleX = marginX;
       if (logoImg) {
-        const logoH = 14;
-        const logoW = logoImg.naturalWidth && logoImg.naturalHeight ? logoH * (logoImg.naturalWidth / logoImg.naturalHeight) : logoH;
-        pdf.addImage(logoImg, "PNG", marginX, 3, logoW, logoH);
-        titleX = marginX + logoW + 4;
+        const logoH = 16;
+        const logoW = logoImg.naturalWidth && logoImg.naturalHeight ? logoH * (logoImg.naturalWidth / logoImg.naturalHeight) : 52;
+        pdf.addImage(logoImg, "PNG", (pageWidth - logoW) / 2, 5, logoW, logoH);
       }
-      pdf.setFont("helvetica", "bold"); pdf.setFontSize(18); pdf.text(`${companyName} — Fleet Inspection Report`, titleX, 16);
-      pdf.setFont("helvetica", "normal"); pdf.setFontSize(9); pdf.setTextColor(90, 100, 90);
-      pdf.text(`Report date: ${reportDate}    Fleets inspected: ${filteredReports.length}    Generated: ${new Date().toLocaleString()}`, titleX, 22);
+      pdf.setFont("helvetica", "bold"); pdf.setFontSize(17); pdf.setTextColor(20, 30, 25);
+      pdf.text("Clover Inspection Report", pageWidth / 2, 28, { align: "center" });
+      pdf.setFont("helvetica", "normal"); pdf.setFontSize(10); pdf.setTextColor(47, 70, 56);
+      pdf.text(`${companyName} · Fleet Manager`, pageWidth / 2, 34, { align: "center" });
+      pdf.setFontSize(8); pdf.setTextColor(90, 100, 90);
+      pdf.text(`Report date: ${reportDate}    Fleets inspected: ${filteredReports.length}    Generated: ${new Date().toLocaleString()}`, pageWidth / 2, 40, { align: "center" });
       pdf.setTextColor(20, 30, 25);
-      y = 28;
+      y = 46;
       drawTableHeader();
 
       filteredReports.forEach((row, index) => {
