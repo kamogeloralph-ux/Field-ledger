@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/lib/supabase";
+import { deleteR2InspectionPhoto, supabase } from "@/lib/supabase";
 
 type FleetOption = { fleet_number: string; registration: string };
 type CompanyInfo = { id: string; name: string; photo_retention_days: number | null };
@@ -83,27 +83,31 @@ export default function AdminPhotoLibrary({ selectedCompanyId, company, fleetOpt
 
   const deletePhotos = async (targets: LibraryPhoto[]) => {
     if (!supabase || targets.length === 0) return;
-    // R2 objects aren't reachable through supabase.storage — there's no delete Edge Function
-    // for that path yet. Deleting the DB row without deleting the R2 object would just leave
-    // an orphaned file paying rent forever, so R2-backed photos are excluded here rather than
-    // silently mis-deleted. Build get-r2-delete-object (mirroring the upload/read functions)
-    // before removing this guard.
     const deletable = targets.filter((p) => p.storage_provider !== "r2");
-    const skipped = targets.length - deletable.length;
-    if (skipped > 0) toast.info(`${skipped} R2-stored photo${skipped === 1 ? "" : "s"} can't be deleted yet — that path isn't wired up.`);
-    if (deletable.length === 0) return;
-    if (!window.confirm(`Delete ${deletable.length} photo${deletable.length === 1 ? "" : "s"}? This cannot be undone.`)) return;
+    const r2Targets = targets.filter((p) => p.storage_provider === "r2");
+    if (!window.confirm(`Delete ${targets.length} photo${targets.length === 1 ? "" : "s"}? This cannot be undone.`)) return;
     setDeleting(true);
-    const { error: storageError } = await supabase.storage.from("inspection-photos").remove(deletable.map((p) => p.storage_path));
-    if (storageError) { toast.error(storageError.message); setDeleting(false); return; }
-    const { error: rowError } = await supabase.from("inspection_photos").delete().in("id", deletable.map((p) => p.id));
-    setDeleting(false);
-    if (rowError) return toast.error(rowError.message);
-    await onAudit?.("photo", deletable.map((p) => p.id).join(","), "deleted", { count: deletable.length, fleet: deletable[0]?.fleet_number });
-    toast.success(`${deletable.length} photo${deletable.length === 1 ? "" : "s"} deleted.`);
-    const deletedIds = new Set(deletable.map((p) => p.id));
-    setPhotos((current) => current.filter((p) => !deletedIds.has(p.id)));
-    setSelectedIds(new Set());
+    try {
+      for (const photo of r2Targets) {
+        const result = await deleteR2InspectionPhoto(photo.id, photo.storage_path, supabase);
+        if (result.error) throw result.error;
+      }
+      if (deletable.length > 0) {
+        const { error: storageError } = await supabase.storage.from("inspection-photos").remove(deletable.map((p) => p.storage_path));
+        if (storageError) throw storageError;
+        const { error: rowError } = await supabase.from("inspection_photos").delete().in("id", deletable.map((p) => p.id));
+        if (rowError) throw rowError;
+      }
+      const deletedIds = new Set(targets.map((p) => p.id));
+      await onAudit?.("photo", targets.map((p) => p.id).join(","), "deleted", { count: targets.length, fleet: targets[0]?.fleet_number });
+      toast.success(`${targets.length} photo${targets.length === 1 ? "" : "s"} deleted.`);
+      setPhotos((current) => current.filter((p) => !deletedIds.has(p.id)));
+      setSelectedIds(new Set());
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to delete selected photos.");
+    } finally {
+      setDeleting(false);
+    }
   };
 
   // Tries the native share sheet first (WhatsApp, email, AirDrop, etc.) with the actual image

@@ -3,6 +3,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined) ?? "https://esbsguetydiqmaectoyu.supabase.co";
 const supabaseAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) ?? "sb_publishable_yQC3oOVE6IwXnexhTkQSXQ_5ZEC4BOi";
+const r2ApiUrl = ((import.meta.env.VITE_R2_API_URL as string | undefined) ?? "https://rovaya-api.kamogeloralph.workers.dev").replace(/\/$/, "");
 
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 
@@ -114,4 +115,24 @@ export async function uploadInspectionPhotoToR2(file: File, inspectionId: string
   }
 
   return { data: { storagePath: presign.objectKey as string }, error: null };
+}
+
+export async function deleteR2InspectionPhoto(photoId: string, storagePath: string, client: SupabaseClient | null = supabase) {
+  if (!client) return { error: new Error("Supabase is not configured yet.") };
+  const { data: sessionData, error: sessionError } = await client.auth.getSession();
+  if (sessionError) return { error: sessionError };
+  const accessToken = sessionData.session?.access_token;
+  if (!accessToken) return { error: new Error("Your admin session has expired. Please sign in again.") };
+  try {
+    const response = await fetch(`${r2ApiUrl}/api/r2/photo/delete`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify({ photoId, storagePath }),
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) return { error: new Error(body.error || `R2 deletion failed (${response.status}).`) };
+    return { error: null };
+  } catch {
+    return { error: new Error("Could not reach the Cloudflare storage service.") };
+  }
 }
