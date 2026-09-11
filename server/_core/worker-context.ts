@@ -1,4 +1,4 @@
-/// <reference types="@cloudflare/workers-types" />
+import type { KVNamespace, R2Bucket } from "@cloudflare/workers-types";
 import type { User } from "../../drizzle/schema";
 import type { Env } from "../../src/worker";
 import { sdk } from "./sdk";
@@ -29,7 +29,7 @@ export async function createWorkerContext(
 
   try {
     // Extract authentication from request headers/cookies
-    user = await sdk.authenticateWorkerRequest(request, env);
+    user = await sdk.authenticateWorkerRequest(request, env.JWT_SECRET);
   } catch (error) {
     // Authentication is optional for public procedures
     console.debug("[Context] Authentication failed:", error);

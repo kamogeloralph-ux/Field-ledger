@@ -1,5 +1,4 @@
-/// <reference types="@cloudflare/workers-types" />
-import type { Env } from "../../src/worker";
+import type { R2Bucket } from "@cloudflare/workers-types";
 import { SDK_PASSWORD, SDK_URL } from "@shared/const";
 
 export async function storagePutWorker(
