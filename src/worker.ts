@@ -40,7 +40,10 @@ export default {
           return workerCtx;
         },
         responseMeta: () => {
-          if (!workerCtx || [...workerCtx.responseHeaders.keys()].length === 0) {
+          // An empty Headers object applies no headers, so there's no need
+          // to check emptiness first (that required iterating the Headers,
+          // which needs a newer compile target than this project uses).
+          if (!workerCtx) {
             return {};
           }
           return { headers: workerCtx.responseHeaders };
