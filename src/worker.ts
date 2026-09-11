@@ -1,3 +1,4 @@
+import type { ExecutionContext, KVNamespace, R2Bucket } from "@cloudflare/workers-types";
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { appRouter } from "../server/routers";
 import { createWorkerContext } from "../server/_core/worker-context";
