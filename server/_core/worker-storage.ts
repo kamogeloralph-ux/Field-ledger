@@ -1,5 +1,4 @@
 import type { R2Bucket } from "@cloudflare/workers-types";
-import { SDK_PASSWORD, SDK_URL } from "@shared/const";
 
 export async function storagePutWorker(
   relKey: string,
@@ -9,13 +8,13 @@ export async function storagePutWorker(
 ): Promise<{ key: string; url: string }> {
   const key = appendHashSuffix(normalizeKey(relKey));
 
-  const blob =
-    typeof data === "string"
-      ? new Blob([data], { type: contentType })
-      : new Blob([data as any], { type: contentType });
+  // Pass strings and bytes directly to R2. Constructing a DOM Blob here
+  // causes a type collision between Node's lib.dom Blob and Cloudflare's
+  // Workers Blob definitions during the full type check.
+  const body = typeof data === "string" ? data : (data as unknown as ArrayBuffer);
 
   // Upload to R2
-  const result = await r2.put(key, blob, {
+  const result = await r2.put(key, body, {
     httpMetadata: {
       contentType: contentType,
     },
