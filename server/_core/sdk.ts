@@ -153,8 +153,10 @@ class SDKServer {
     return new Map(Object.entries(parsed));
   }
 
-  private getSessionSecret() {
-    const secret = ENV.cookieSecret;
+  private getSessionSecret(secretOverride?: string) {
+    // Workers have no process.env, so ENV.cookieSecret is empty there — the
+    // Worker path must pass its JWT secret explicitly via env.JWT_SECRET.
+    const secret = secretOverride ?? ENV.cookieSecret;
     return new TextEncoder().encode(secret);
   }
 
@@ -165,7 +167,7 @@ class SDKServer {
    */
   async createSessionToken(
     openId: string,
-    options: { expiresInMs?: number; name?: string } = {}
+    options: { expiresInMs?: number; name?: string; secret?: string } = {}
   ): Promise<string> {
     return this.signSession(
       {
@@ -177,14 +179,26 @@ class SDKServer {
     );
   }
 
+  /**
+   * Same as createSessionToken, but for the Cloudflare Worker path, which
+   * has no process.env and must supply its JWT secret from env.JWT_SECRET.
+   */
+  async createWorkerSessionToken(
+    openId: string,
+    options: { expiresInMs?: number; name?: string } = {},
+    secret: string
+  ): Promise<string> {
+    return this.createSessionToken(openId, { ...options, secret });
+  }
+
   async signSession(
     payload: SessionPayload,
-    options: { expiresInMs?: number } = {}
+    options: { expiresInMs?: number; secret?: string } = {}
   ): Promise<string> {
     const issuedAt = Date.now();
     const expiresInMs = options.expiresInMs ?? ONE_YEAR_MS;
     const expirationSeconds = Math.floor((issuedAt + expiresInMs) / 1000);
-    const secretKey = this.getSessionSecret();
+    const secretKey = this.getSessionSecret(options.secret);
 
     return new SignJWT({
       openId: payload.openId,
@@ -197,7 +211,8 @@ class SDKServer {
   }
 
   async verifySession(
-    cookieValue: string | undefined | null
+    cookieValue: string | undefined | null,
+    secretOverride?: string
   ): Promise<{ openId: string; appId: string; name: string } | null> {
     if (!cookieValue) {
       console.warn("[Auth] Missing session cookie");
@@ -205,7 +220,7 @@ class SDKServer {
     }
 
     try {
-      const secretKey = this.getSessionSecret();
+      const secretKey = this.getSessionSecret(secretOverride);
       const { payload } = await jwtVerify(cookieValue, secretKey, {
         algorithms: ["HS256"],
       });
@@ -256,21 +271,44 @@ class SDKServer {
   }
 
   async authenticateRequest(req: Request): Promise<AuthenticatedUser> {
+    return this.authenticateSession(req.headers.cookie, req.headers.authorization);
+  }
+
+  /**
+   * Same as authenticateRequest, adapted for the Cloudflare Worker's Fetch
+   * API Request (Headers.get() instead of Express's plain header object),
+   * and for JWT_SECRET arriving via env instead of process.env.
+   */
+  async authenticateWorkerRequest(
+    req: globalThis.Request,
+    secret?: string
+  ): Promise<AuthenticatedUser> {
+    return this.authenticateSession(
+      req.headers.get("cookie") ?? undefined,
+      req.headers.get("authorization") ?? undefined,
+      secret
+    );
+  }
+
+  private async authenticateSession(
+    cookieHeader: string | undefined,
+    authHeader: string | undefined,
+    secretOverride?: string
+  ): Promise<AuthenticatedUser> {
     // 1. Prefer the session cookie (regular OAuth login).
-    const cookies = this.parseCookies(req.headers.cookie);
+    const cookies = this.parseCookies(cookieHeader);
     let sessionToken = cookies.get(COOKIE_NAME);
 
     // 2. Fallback to the Authorization header (Preview auto-login via
     //    sessionStorage), used when the browser blocks iframe cookies such as
     //    Safari ITP, private browsing, or iOS/Android WebView.
     if (!sessionToken) {
-      const authHeader = req.headers.authorization;
       if (typeof authHeader === "string" && authHeader.startsWith("Bearer ")) {
         sessionToken = authHeader.slice(7);
       }
     }
 
-    const session = await this.verifySession(sessionToken);
+    const session = await this.verifySession(sessionToken, secretOverride);
 
     if (!session) {
       throw ForbiddenError("Invalid session cookie");
